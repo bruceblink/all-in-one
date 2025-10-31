@@ -23,18 +23,18 @@ typora-root-url: ./..\..\static
 ## 内容目录
 1. ### [引言（Introduction）](chapter1.md#引言introduction)
 
-    - 1.1 什么是 Haskell？（What is Haskell?）
-        - 1.1.1 抽象与理论（Abstraction and theory）
-        - 1.1.2 一个安全的环境（A safe place）
-    - 1.2 纯函数式之道（The pure functional way）
-        - 1.2.1 声明式“食谱”（A declarative recipe）
-        - 1.2.2 从蛋糕到程序（From cake to program）
-        - 1.2.3 一切都是为了简单（It’s all for simplicity）
-    - 1.3 抽象的使用（Usage of abstraction）
-        - 1.3.1 优点（The good parts）
-        - 1.3.2 缺点（The bad parts）
-    - 1.4 我们所学到的（The things we learn）
-    - 总结（Summary）
+    - [1.1 什么是 Haskell？（What is Haskell?）](chapter1#11-什么是-haskellwhat-is-haskell)
+        - [1.1.1 抽象与理论（Abstraction and theory）](chapter1#111-抽象与理论abstraction-and-theory)
+        - [1.1.2 一个安全的环境（A safe place）](chapter1#112-一个安全的环境a-safe-place)
+    - [1.2 纯函数式之道（The pure functional way）](chapter1#12-纯函数式之道the-pure-functional-way)
+        - [1.2.1 声明式“食谱”（A declarative recipe）](chapter1#121-声明式食谱a-declarative-recipe)
+        - [1.2.2 从蛋糕到程序（From cake to program）](chapter1#122-从蛋糕到程序from-cake-to-program)
+        - [1.2.3 一切都是为了简单（It’s all for simplicity）](chapter1#123-一切都是为了简单its-all-for-simplicity)
+    - [1.3 抽象的使用（Usage of abstraction）](chapter1#13-抽象的使用usage-of-abstraction)
+        - [1.3.1 优点（The good parts）](chapter1#131-优点the-good-parts)
+        - [1.3.2 缺点（The bad parts）](chapter1#132-缺点the-bad-parts)
+    - [1.4 我们所学到的（The things we learn）](chapter1#14-我们所学到的the-things-we-learn)
+    - [总结（Summary）](chapter1#总结summary)
 
 2. ### [古老的秘密在现代机器上（Ancient secret keeping on modern machines）](chapter2.md#古老的秘密在现代机器上ancient-secret-keeping-on-modern-machines)
 
