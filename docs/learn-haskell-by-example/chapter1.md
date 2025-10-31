@@ -2,7 +2,7 @@
 sidebar_position: 2
 typora-root-url: ./..\..\static
 ---
-# 第 1 章 引言
+# 第 1 章 引言（Introduction）
 
 本章内容包括：
 
