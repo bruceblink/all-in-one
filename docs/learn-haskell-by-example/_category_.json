@@ -1,0 +1,8 @@
+{
+  "label": "Learn Haskell by Example",
+  "position": 2,
+  "link": {
+    "type": "generated-index",
+    "description": "the book to learn haskell."
+  }
+}
