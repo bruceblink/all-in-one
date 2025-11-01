@@ -38,8 +38,8 @@ typora-root-url: ./..\..\static
 
 2. ### [古老的秘密在现代机器上延续（Ancient secret keeping on modern machines）](chapter2.md#古老的秘密在现代机器上延续ancient-secret-keeping-on-modern-machines)
 
-    - 2.1 Haskell 入门（A primer on Haskell）
-        - 2.1.1 凯撒密码（Caesar’s cipher）
+    - [2.1 Haskell 入门（A primer on Haskell）](chapter2#21-haskell-入门)
+        - [2.1.1 凯撒密码（Caesar’s cipher）](chapter2#211-凯撒密码caesars-cipher)
         - 2.1.2 新项目（A new project）
         - 2.1.3 第一个模块（The first module）
     - 2.2 典型类型与奇妙函数（Typical types and fantastic functions）
