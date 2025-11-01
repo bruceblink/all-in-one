@@ -36,7 +36,7 @@ typora-root-url: ./..\..\static
     - [1.4 我们所学到的（The things we learn）](chapter1#14-我们所学到的the-things-we-learn)
     - [总结（Summary）](chapter1#总结summary)
 
-2. ### [古老的秘密在现代机器上（Ancient secret keeping on modern machines）](chapter2.md#古老的秘密在现代机器上ancient-secret-keeping-on-modern-machines)
+2. ### [古老的秘密在现代机器上延续（Ancient secret keeping on modern machines）](chapter2.md#古老的秘密在现代机器上延续ancient-secret-keeping-on-modern-machines)
 
     - 2.1 Haskell 入门（A primer on Haskell）
         - 2.1.1 凯撒密码（Caesar’s cipher）
