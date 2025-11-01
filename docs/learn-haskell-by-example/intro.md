@@ -40,8 +40,8 @@ typora-root-url: ./..\..\static
 
     - [2.1 Haskell 入门（A primer on Haskell）](chapter2#21-haskell-入门)
         - [2.1.1 凯撒密码（Caesar’s cipher）](chapter2#211-凯撒密码caesars-cipher)
-        - 2.1.2 新项目（A new project）
-        - 2.1.3 第一个模块（The first module）
+        - [2.1.2 新项目（A new project）](chapter2#212-新建项目a-new-project)
+        - [2.1.3 第一个模块（The first module）](chapter2#213-第一个模块the-first-module)
     - 2.2 典型类型与奇妙函数（Typical types and fantastic functions）
         - 2.2.1 原子级类型（Types on the atomic level）
         - 2.2.2 列表与元组（Lists and tuples）
