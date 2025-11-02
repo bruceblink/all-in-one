@@ -44,7 +44,7 @@ typora-root-url: ./..\..\static
         - [2.1.3 第一个模块（The first module）](chapter2#213-第一个模块the-first-module)
     - [2.2 典型类型与奇妙函数（Typical types and fantastic functions）](chapter2#22-常见类型与奇妙函数typical-types-and-fantastic-functions)
         - [2.2.1 原子级类型（Types on the atomic level）](chapter2#221-原子级别的类型types-on-the-atomic-level)
-        - 2.2.2 列表与元组（Lists and tuples）
+        - [2.2.2 列表与元组（Lists and tuples）](chapter2#222-列表与元组lists-and-tuples)
         - 2.2.3 函数类型（Function types）
         - 2.2.4 给数学加上类型（Adding types to math）
     - 2.3 字母的小帮手（A little help with the alphabet）
