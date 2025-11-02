@@ -432,3 +432,27 @@ add x y = x + y
 > ![figure2-4](/img/learn-haskell-by-example/chapter2/figure2-4.png)
 >
 > 图 2.4：一个函数的类型表达式示例及其对应的定义
+
+
+
+### 2.2.4 给数学运算加上类型（Adding types to math）
+
+现在我们已经了解了类型是如何书写的，可以看到 `Int -> Int` 是 `square` 函数的一个合法类型。但为什么我们使用的是 `Int` 而不是其他数值类型呢？其实，没有特别的理由；然而，我们并不能随意更改类型。`(*)` 运算符可以作用于所有数值类型，但它要求**两个参数的类型必须相同**。如果我们给函数传入不同类型的值，就会遇到类型错误：
+
+```haskell
+ghci> a = 1 :: Int        -- #1
+ghci> b = 2 :: Double     -- #2
+ghci> a * b
+<interactive>:4:5: error:
+    • Couldn't match expected type 'Int' with actual type 'Double'
+    • In the second argument of '(*)', namely 'b'
+      In the expression: a * b
+      In an equation for 'it': it = a * b
+```
+
+- \#1 指定变量 `a` 的类型为 `Int`
+- \#2 指定变量 `b` 的类型为 `Double`
+
+错误信息正如我们预期的那样：表达式 `a * b` 产生了类型错误，因为使用 `a`（类型为 `Int`）会强制 `b` 也必须是 `Int` 类型，而实际上 `b` 是 `Double`。
+
+回想我们的加密算法，我们已经可以推测需要一个函数，它能将单个字符按指定的偏移量进行旋转，因此我们需要一个类型为 `Int -> Char -> Char` 的函数。不过，由于我们必须分别处理小写字母和大写字母，所以还需要考虑如何表示我们所使用的字符集和字母表。
