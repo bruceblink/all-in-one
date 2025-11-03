@@ -456,3 +456,145 @@ ghci> a * b
 错误信息正如我们预期的那样：表达式 `a * b` 产生了类型错误，因为使用 `a`（类型为 `Int`）会强制 `b` 也必须是 `Int` 类型，而实际上 `b` 是 `Double`。
 
 回想我们的加密算法，我们已经可以推测需要一个函数，它能将单个字符按指定的偏移量进行旋转，因此我们需要一个类型为 `Int -> Char -> Char` 的函数。不过，由于我们必须分别处理小写字母和大写字母，所以还需要考虑如何表示我们所使用的字符集和字母表。
+
+
+
+## 2.3 关于字母表的一点帮助（A little help with the alphabet）
+
+为了实现我们的算法，我们需要更深入地思考凯撒密码是如何工作的。正如图 2.5 所示，我们将每个字母替换为另一个字母，因此这种加密方法被称为替换密码。既然我们要实现这个密码，就必须问一个重要问题：我们如何处理字母和字母表？
+
+> 
+>
+> ![figure2-5](/img/learn-haskell-by-example/chapter2/figure2-5.png)
+>
+> 图 2.5 凯撒密码概览
+
+我们已经开始考虑我们要处理的数据类型。我们需要一个方法来指定偏移量，它可以是正数也可以是负数，因此 `Int` 类型可能就够用了。消息由一些字母组成，所以使用 `String` 类型可能比较合适。
+
+------
+
+### 2.3.1 为可读性定义同义类型
+
+等等，`String`？我们之前没见过这个类型。幸运的是，我们实际上已经隐式使用过它了。Haskell 中 `String` 的完整定义如下：
+
+```haskell
+type String = [Char]
+```
+
+`type` 关键字定义了一个类型的简单同义词。因此，`String` 只是 `[Char]` 的别名。那么我们如何定义一个 `String` 值呢？
+
+```haskell
+string1 :: String
+string1 = "Hello World"
+
+string2 :: String
+string2 = ['H', 'e', 'l', 'l', 'o', ' ', 'W', 'o', 'r', 'l', 'd']
+```
+
+Haskell 和许多其他语言一样，为字符串提供了显式语法，这只是书写字符列表的一种更漂亮的方式。上述两个字符串是完全相同的。
+
+现在我们知道要处理的类型，可以开始考虑实现算法所需的功能。无论最终方案如何，我们需要的函数都必须能够为单个字符生成替换字符。首先，我们需要一些工具函数来简化操作。在加密消息时，知道我们正在处理的字符类型非常有帮助。我们希望函数能够判断字符串中的字符是大写字母、小写字母、数字还是其他字符，其类型可以如下所示：
+
+```haskell
+isUpper :: Char -> Bool
+isLower :: Char -> Bool
+isDigit :: Char -> Bool
+isMisc  :: Char -> Bool
+```
+
+实现这些函数需要我们判断一个 `Char` 是否属于某个字符集合。我们称这些集合为字母表。为此，我们首先定义一个字母表的类型同义词，本质上就是字符列表：
+
+```haskell
+type Alphabet = [Char]
+```
+注意，字符串和字母表的类型完全相同，但类型的作用是表示该值的用途。`String` 用于显示在屏幕上，通常表示可读文本，而字母表类型意味着它表示我们要在替换密码中使用的字符集合，可以像图 2.1 所示那样旋转。
+有了字母表类型后，我们可以开始定义字母表。例如，定义小写拉丁字母表：
+
+```haskell
+lowerAlphabet :: Alphabet
+lowerAlphabet = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j',
+                 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 
+                 'u', 'v', 'w', 'x', 'y', 'z']
+```
+
+不过，这样写比较繁琐。幸运的是，Haskell 支持范围语法（range）：
+
+```haskell
+ghci> [1 .. 10 :: Int]
+[1,2,3,4,5,6,7,8,9,10]
+ghci> [1, 5 .. 100 :: Int]
+[1,5,9,13,17,21,25,29,33,37,41,45,49,53,57,61,65,69,73,77,81,85,89,93,97]
+ghci> [0, -2 .. -10 :: Int]
+[0,-2,-4,-6,-8,-10]
+```
+
+范围语法还支持步长，并且同样适用于 `Char` 类型。因此我们可以更简洁地定义字母表，如下所示（见清单 2.4）：
+
+**清单 2.4 不同拉丁字母表和数字的定义**
+
+```haskell
+lowerAlphabet :: Alphabet
+lowerAlphabet = ['a' .. 'z']
+
+upperAlphabet :: Alphabet
+upperAlphabet = ['A' .. 'Z']
+
+digits :: Alphabet
+digits = ['0' .. '9']
+```
+
+确保你的 GHCi 会话仍然打开，因为现在可以检查这些字母表！在 `Lib.hs` 中保存这些定义后，重新加载 GHCi：
+
+```haskell
+ghci> :reload          -- #1
+[3 of 3] Compiling Lib ( .../src/Lib.hs, interpreted )
+Ok, three modules loaded.
+
+ghci> lowerAlphabet
+"abcdefghijklmnopqrstuvwxyz"
+ghci> upperAlphabet
+"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+ghci> digits
+"0123456789"
+```
+
+- \#1 `:reload` 会重新加载模块，使模块中的新定义立即可用
+
+如果之前关闭了 GHCi，会话也没关系，只需在 `Lib.hs` 保存字母表定义，然后在项目目录下再次执行 `stack repl` 即可。
+
+⚠️ 警告：在 GHCi 中使用 `:reload` 时，所有本地定义和变量都会被删除！该命令相当于关闭并重新打开 GHCi。
+
+
+如你所见，字母表包含了我们需要的所有字符。但为什么它们被打印为 `String`？我们不是指定了自定义的字母表类型吗？在 GHCi 中使用 `:type` 命令检查：
+
+```haskell
+ghci> :type lowerAlphabet
+lowerAlphabet :: Alphabet
+ghci> :type upperAlphabet
+upperAlphabet :: Alphabet
+ghci> :type digits
+digits :: Alphabet
+```
+
+确实，它们是自定义类型。由于字母表是 `Char` 列表的同义词，并且几乎总是作为 `String` 使用，因此 Haskell 默认将其打印为 `String`。
+
+使用类型同义词可以互换，但它的主要目的在于**可读性**：如果一个函数的参数类型是 `Alphabet`，我们就能推断出该函数会以特定方式处理这些字符。在这里，我们可以推断函数是为了加密算法而编写的。
+
+
+#### FilePath 类型
+
+标准库中也有类似的可读性用法。例如，`FilePath` 类型用于表示文件路径，但在 GHCi 中查看时会发现：
+
+```haskell
+ghci> :info FilePath
+type FilePath :: *
+type FilePath = String
+        -- Defined in 'GHC.IO'
+```
+
+这个特殊类型本质上就是普通的 `String`（也就是 `[Char]`），但它可以提高函数的可读性：如果一个函数参数是 `FilePath`，就更清楚它期望的 `String` 格式是什么。
+
+使用 `:info` 可以查看类型的定义和来源。
+
+💡 提示：`:reload`、`:type` 和 `:info` 分别可以简写为 `:r`、`:t` 和 `:i`。
+
