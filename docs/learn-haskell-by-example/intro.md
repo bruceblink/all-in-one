@@ -51,8 +51,8 @@ typora-root-url: ./..\..\static
         - [2.3.1 可读性同义类型（Synonymous types for readability）](chapter2#231-为可读性定义同义类型synonymous-types-for-readability)
         - [2.3.2 字母的种类（The kinds of letters）](chapter2#232-字母的类型the-kinds-of-letters)
         - [2.3.3 逻辑组合（Logical combinations）](chapter2#233-逻辑组合logical-combinations)
-    - 2.4 转动轮子（Rotating the wheel）
-        - 2.4.1 查找元素索引（Finding an element’s index）
+    - [2.4 转动轮子（Rotating the wheel）](chapter2#24-旋转转盘rotating-the-wheel)
+        - [2.4.1 查找元素索引（Finding an element’s index）](chapter2#241-查找元素的索引finding-an-elements-index)
         - 2.4.2 查找索引处的元素（Finding the element at an index）
         - 2.4.3 控制流保护（Guarding control flow）
     - 2.5 字符串转换（Transforming a string）
