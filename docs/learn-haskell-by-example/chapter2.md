@@ -473,7 +473,7 @@ ghci> a * b
 
 ------
 
-### 2.3.1 为可读性定义同义类型
+### 2.3.1 为可读性定义同义类型（Synonymous types for readability）
 
 等等，`String`？我们之前没见过这个类型。幸运的是，我们实际上已经隐式使用过它了。Haskell 中 `String` 的完整定义如下：
 
@@ -598,3 +598,112 @@ type FilePath = String
 
 💡 提示：`:reload`、`:type` 和 `:info` 分别可以简写为 `:r`、`:t` 和 `:i`。
 
+### 2.3.2 字母的类型（The kinds of letters）
+
+ 既然我们已经有了字母表，现在可以开始编写判断字符是否属于某个字母表的函数了。我们可以使用一个名为 `elem` 的函数。`elem` 是一个二元函数，需要两个参数：元素本身以及我们想要检查的列表。如果元素存在于列表中，它将返回 `True`，否则返回 `False`。由于我们的字母表类型 `Alphabet` 是 `[Char]` 的同义词，所以可以在字母表上使用这个函数。使用方法如下：
+
+```haskell
+ghci> elem 'a' lowerAlphabet
+True
+ghci> elem 'a' upperAlphabet
+False
+ghci> elem '1' lowerAlphabet
+False
+ghci> elem '1' digits
+True
+```
+
+Haskell 提供了一种语法小技巧来增强二元函数的可读性：
+
+```haskell
+ghci> 'a' `elem` lowerAlphabet
+True
+```
+
+任何二元函数都可以使用反引号写成中缀表示法！现在我们可以像读一句话一样理解代码：“`a` 是小写字母表中的元素吗？”
+
+将这些函数组合起来，代码如下：
+
+**清单 2.5 检查字母表成员的辅助函数**
+
+```haskell
+isLower :: Char -> Bool
+isLower char = char `elem` lowerAlphabet   #1
+
+isUpper :: Char -> Bool
+isUpper char = char `elem` upperAlphabet     #2
+
+isDigit :: Char -> Bool
+isDigit char = char `elem` digits    #3
+```
+
+- \#1 如果字符是小写字母则返回 `True`
+- \#2 如果字符是大写字母则返回 `True`
+- \#3 如果字符是数字则返回 `True`
+
+在 GHCi 中测试这些函数：
+
+```haskell
+ghci> :r
+[3 of 3] Compiling Lib              (.../src/Lib.hs, interpreted )
+Ok, three modules loaded.
+ghci> isLower 'a'
+True
+ghci> isLower 'A'
+False
+ghci> isUpper 'A'
+True
+ghci> isDigit '5'
+True
+```
+
+### 2.3.3 逻辑组合（Logical combinations）
+
+ 那如何判断一个字符是“杂项”（即不属于任何字母表）呢？可以使用布尔运算符：
+
+```haskell
+isMisc :: Char -> Bool
+isMisc char = not (isUpper char || isLower char || isDigit char)
+```
+
+布尔运算符有逻辑或 (`||`)、逻辑与 (`&&`) 和逻辑非 (`not`)，它们的类型如下：
+
+```haskell
+ghci> :type not
+not :: Bool -> Bool
+ghci> :type (||)
+(||) :: Bool -> Bool -> Bool
+ghci> :type (&&)
+(&&) :: Bool -> Bool -> Bool
+```
+
+在 Haskell 中，运算符本质上是函数，使用括号可以将它们解释为函数，也可以写成前缀形式：
+
+```haskell
+ghci> (||) False True
+True
+ghci> (+) 1 2
+3
+```
+
+回到 `isMisc` 函数，虽然正确，但不易扩展。如果将来增加新的字母表，就必须写额外的辅助函数并添加到逻辑或中。更好的方法是检查字符是否不属于所有已有字母表。这时可以使用列表的追加运算符 `(++)`：
+
+```haskell
+ghci> [1,2,3] ++ [4,5,6]
+[1,2,3,4,5,6]
+ghci> "Hello" ++ " " ++ "World!"
+"Hello World!"
+```
+
+注意，这个运算符同样适用于字符串，因为字符串本质上就是字符列表！此外，还有 `notElem` 函数，它是 `elem` 的否定形式。结合使用后，我们得到以下代码：
+
+**清单 2.6 判断字符是否既不是字母也不是数字的辅助函数**
+
+```haskell
+isMisc :: Char -> Bool
+isMisc char = char `notElem` lowerAlphabet ++ upperAlphabet ++ digits   #1
+```
+
+- \#1 如果字符不属于小写字母、大写字母或数字，则返回 `True`
+
+这样一来，扩展函数以支持更多字母表或其他不被视为杂项的字符，只需将新的字符列表追加到表达式中即可。

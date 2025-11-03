@@ -48,9 +48,9 @@ typora-root-url: ./..\..\static
         - [2.2.3 函数类型（Function types）](chapter2#223-函数类型function-types)
         - [2.2.4 给数学运算加上类型（Adding types to math）](chapter2#224-给数学运算加上类型adding-types-to-math)
     - [2.3 关于字母表的一点帮助（A little help with the alphabet）](chapter2#23-关于字母表的一点帮助a-little-help-with-the-alphabet)
-        - [2.3.1 可读性同义类型（Synonymous types for readability）](chapter2#231-为可读性定义同义类型)
-        - 2.3.2 字母的种类（The kinds of letters）
-        - 2.3.3 逻辑组合（Logical combinations）
+        - [2.3.1 可读性同义类型（Synonymous types for readability）](chapter2#231-为可读性定义同义类型synonymous-types-for-readability)
+        - [2.3.2 字母的种类（The kinds of letters）](chapter2#232-字母的类型the-kinds-of-letters)
+        - [2.3.3 逻辑组合（Logical combinations）](chapter2#233-逻辑组合logical-combinations)
     - 2.4 转动轮子（Rotating the wheel）
         - 2.4.1 查找元素索引（Finding an element’s index）
         - 2.4.2 查找索引处的元素（Finding the element at an index）
