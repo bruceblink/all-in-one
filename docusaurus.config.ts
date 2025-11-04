@@ -78,6 +78,14 @@ const config: Config = {
         sidebarPath: false,     // 如果没有侧边栏可以禁用
       },
     ],
+    [
+      '@docusaurus/plugin-content-docs',
+      {
+        id: 'books',             // 唯一 ID
+        path: 'books',           // 本地目录路径
+        routeBasePath: 'books',  // 访问路径 => /books
+      },
+    ],
   ],
   themeConfig: {
     // Replace with your project's social card
@@ -94,10 +102,9 @@ const config: Config = {
       },
       items: [
         {
-          type: 'docSidebar',
-          sidebarId: 'tutorialSidebar',
+          to: '/books/intro',
+          label: 'Books',
           position: 'left',
-          label: 'Docs',
         },
         {
           to: 'https://blog.likanug.top/',
