@@ -55,10 +55,11 @@ typora-root-url: ./..\..\static
         - [2.4.1 查找元素索引（Finding an element’s index）](chapter2#241-查找元素的索引finding-an-elements-index)
         - [2.4.2 查找索引处的元素（Finding the element at an index）](chapter2#242-查找给定索引处的元素)
         - [2.4.3 控制流保护（Guarding control flow）](chapter2#243-使用守卫控制流程guarding-control-flow)
-    - 2.5 字符串转换（Transforming a string）
-        - 2.5.1 高阶映射（A higher-order mapping）
-        - 2.5.2 类型参数化（Parameterizing types）
-        - 2.5.3 完整的密码（A finished cipher）
+    - [2.5 转换字符串（Transforming a string）](chapter2#25-转换字符串transforming-a-string)
+        - [2.5.1 高阶映射（A higher-order mapping）](chapter2#251-高阶映射a-higher-order-mapping)
+        - [2.5.2 参数化类型（Parameterizing types）](chapter2#252-参数化类型parameterizing-types)
+        - [2.5.3 完整的凯撒密码（A finished cipher）](chapter2#253-完整的凯撒密码a-finished-cipher)
+    - [总结（Summary）](chapter2#总结summary)
 
 3. ### [每行都重要（Every line counts）](chapter3.md#每行都重要every-line-counts)
 
