@@ -68,6 +68,17 @@ const config: Config = {
     ],
   ],
 
+  plugins: [
+    [
+      '@docusaurus/plugin-content-docs',
+      {
+        id: 'wiki',             // 唯一 ID
+        path: 'wiki',           // 本地目录路径
+        routeBasePath: 'wiki',  // 访问路径 => /wiki
+        sidebarPath: false,     // 如果没有侧边栏可以禁用
+      },
+    ],
+  ],
   themeConfig: {
     // Replace with your project's social card
     image: 'img/docusaurus-social-card.jpg',
