@@ -21,7 +21,7 @@ typora-root-url: ./..\..\static
 
 
 ## 内容目录
-1. ### [引言（Introduction）](chapter1.md#引言introduction)
+1. ### [第1章 - 引言（Introduction）](chapter1.md#引言introduction)
 
     - [1.1 什么是 Haskell？（What is Haskell?）](chapter1#11-什么是-haskellwhat-is-haskell)
         - [1.1.1 抽象与理论（Abstraction and theory）](chapter1#111-抽象与理论abstraction-and-theory)
@@ -36,7 +36,7 @@ typora-root-url: ./..\..\static
     - [1.4 我们所学到的（The things we learn）](chapter1#14-我们所学到的the-things-we-learn)
     - [总结（Summary）](chapter1#总结summary)
 
-2. ### [古老的秘密在现代机器上延续（Ancient secret keeping on modern machines）](chapter2.md#古老的秘密在现代机器上延续ancient-secret-keeping-on-modern-machines)
+2. ### [第2章 - 古老的秘密在现代机器上延续（Ancient secret keeping on modern machines）](chapter2.md#古老的秘密在现代机器上延续ancient-secret-keeping-on-modern-machines)
 
     - [2.1 Haskell 入门（A primer on Haskell）](chapter2#21-haskell-入门a-primer-on-haskell)
         - [2.1.1 凯撒密码（Caesar’s cipher）](chapter2#211-凯撒密码caesars-cipher)
@@ -61,7 +61,7 @@ typora-root-url: ./..\..\static
         - [2.5.3 完整的凯撒密码（A finished cipher）](chapter2#253-完整的凯撒密码a-finished-cipher)
     - [总结（Summary）](chapter2#总结summary)
 
-3. ### [每一行都至关重要（Every line counts）](chapter3.md#每一行都至关重要every-line-counts)
+3. ### [第3章 - 每一行都至关重要（Every line counts）](chapter3.md#每一行都至关重要every-line-counts)
 
     - 3.1 与外部交互（Talking to the outside）
         - 3.1.1 简单输入输出（Simple actions for input and output）
@@ -77,7 +77,7 @@ typora-root-url: ./..\..\static
         - 3.4.1 let 关键字（The let keyword）
         - 3.4.2 使用 stack 运行程序（Running the program with stack）
 
-4. ### [行号工具（Line numbering tool）](chapter4.md#line-numbering-tool)
+4. ### [第4章 - 行号工具（Line numbering tool）](chapter4.md#line-numbering-tool)
 
     - 4.1 文件读取与内容转换（Reading files and transforming their content）
         - 4.1.1 编写纯库（Writing a pure library）
@@ -94,7 +94,7 @@ typora-root-url: ./..\..\static
         - 4.4.1 命令行选项编码与解析（Encoding and parsing command line options）
         - 4.4.2 项目概览（An overview of the project）
 
-5. ### [单词与图（Words and graphs）](chapter5.md#单词与图words-and-graphs)
+5. ### [第5章 - 单词与图（Words and graphs）](chapter5.md#单词与图words-and-graphs)
 
     - 5.1 构建图（Building a graph）
         - 5.1.1 多态类型（Polymorphic types）
@@ -112,7 +112,7 @@ typora-root-url: ./..\..\static
     - 5.4 转换参数化（Parameterizing transformations）
         - 5.4.1 列表推导（List comprehensions）
 
-6. ### [解梯子游戏（Solving the ladder game）](chapter6.md#解梯子游戏solving-the-ladder-game)
+6. ### [第6章 - 解梯子游戏（Solving the ladder game）](chapter6.md#解梯子游戏solving-the-ladder-game)
 
     - 6.1 构建广度优先搜索（Constructing a breadth-first search）
         - 6.1.1 算法概述（Overview of the algorithm）
@@ -127,7 +127,7 @@ typora-root-url: ./..\..\static
         - 6.3.2 添加项目依赖（Adding project dependencies）
         - 6.3.3 惰性求值（Lazy evaluation）
 
-7. ### [处理 CSV 文件（Working with CSV files）](chapter7.md#处理-csv-文件working-with-csv-files)
+7. ### [第7章 - 处理 CSV 文件（Working with CSV files）](chapter7.md#处理-csv-文件working-with-csv-files)
 
     - 7.1 建模 CSV 数据（Modeling CSV data）
         - 7.1.1 记录语法（Record syntax）
@@ -143,7 +143,7 @@ typora-root-url: ./..\..\static
         - 7.4.1 数据结构切片的类型类（A type class for slicing data structures）
         - 7.4.2 模块重导出（Re-exporting modules）
 
-8. ### [CSV 工具（A tool for CSV）](chapter8.md#csv-工具a-tool-for-csv)
+8. ### [第8章 - CSV 工具（A tool for CSV）](chapter8.md#csv-工具a-tool-for-csv)
 
     - 8.1 数据解析（Parsing data）
         - 8.1.1 数值解析（Parsing numeric values）
@@ -157,7 +157,7 @@ typora-root-url: ./..\..\static
     - 8.4 简单命令行解析器（A simple command-line parser）
         - 8.4.1 支持标志与复杂参数（Supporting flags and complicated arguments）
 
-9. ### [快速检查与随机测试（Quick checks and random tests）](chapter9.md#快速检查与随机测试quick-checks-and-random-tests)
+9. ### [第9章 - 快速检查与随机测试（Quick checks and random tests）](chapter9.md#快速检查与随机测试quick-checks-and-random-tests)
 
     - 9.1 如何测试（How to test）
         - 9.1.1 属性测试（Property testing）
@@ -180,7 +180,7 @@ typora-root-url: ./..\..\static
         - 9.5.3 构建测试套件（Constructing test suites）
         - 9.5.4 测试有效性（The effectiveness of testing）
 
-10. ### [数字音乐盒（Digital music box）](chapter10.md#数字音乐盒digital-music-box)
+10. ### [第10章 - 数字音乐盒（Digital music box）](chapter10.md#数字音乐盒digital-music-box)
 
     - 10.1 用数字建模声音（Modeling sound with numbers）
         - 10.1.1 数值类型类的“动物园”（The zoo of numeric type classes）
@@ -196,7 +196,7 @@ typora-root-url: ./..\..\static
         - 10.4.2 Ratio 类型
         - 10.4.3 不同类型的指数运算（Different kinds of exponentiation）
 
-11. ### [编程音乐作品（Programming musical compositions）](chapter11.md#编程音乐作品programming-musical-compositions)
+11. ### [第11章 - 编程音乐作品（Programming musical compositions）](chapter11.md#编程音乐作品programming-musical-compositions)
 
     - 11.1 多类型多态数据结构（Polymorphic data structures with multiple types）
         - 11.1.1 存在量化（Existential quantification）
@@ -209,7 +209,7 @@ typora-root-url: ./..\..\static
         - 11.3.2 自定义操作符用于类列表数据结构（Custom operators for list-like data structures）
         - 11.3.3 Fixity 声明（Fixity declarations）
 
-12. ### [解析像素数据（Parsing pixel data）](chapter12.md#解析像素数据parsing-pixel-data)
+12. ### [第12章 - 解析像素数据（Parsing pixel data）](chapter12.md#解析像素数据parsing-pixel-data)
 
     - 12.1 编写解析器（Writing a parser）
         - 12.1.1 可移植的历史图像（Portable images from the past）
@@ -225,7 +225,7 @@ typora-root-url: ./..\..\static
         - 12.2.3 格式选择（Choosing between formats）
         - 12.2.4 组合解析器（Putting parsers together）
 
-13. ### [并行图像处理（Parallel image processing）](chapter13.md#并行图像处理parallel-image-processing)
+13. ### [第13章 - 并行图像处理（Parallel image processing）](chapter13.md#并行图像处理parallel-image-processing)
 
     - 13.1 向调用者提供类型信息（Providing type information to the caller）
         - 13.1.1 返回类型多态性问题（Problems with return-type polymorphism）
@@ -241,7 +241,7 @@ typora-root-url: ./..\..\static
         - 13.4.2 并行原理（How parallelism works）
         - 13.4.3 Sparks 图像处理 HECs（Haskell execution contexts）
 
-14. ### [文件与异常（Files and exceptions）](chapter14.md#文件与异常files-and-exceptions)
+14. ### [第14章 - 文件与异常（Files and exceptions）](chapter14.md#文件与异常files-and-exceptions)
 
     - 14.1 打开和读取文件（Opening and reading files）
         - 14.1.1 System.IO 与 Handle
@@ -255,7 +255,7 @@ typora-root-url: ./..\..\static
     - 14.4 抛出与捕获异常（Throwing and catching exceptions）
         - 14.4.1 错误处理（Handling an error）
 
-15. ### [同步的转换器（Transformers for synchronizing）](chapter15.md#同步的转换器transformers-for-synchronizing)
+15. ### [第15章 - 同步的转换器（Transformers for synchronizing）](chapter15.md#同步的转换器transformers-for-synchronizing)
 
     - 15.1 Monad 转换器（Monad transformers）
         - 15.1.1 使用 ReaderT 读取环境（Reading an environment with ReaderT）
@@ -268,7 +268,7 @@ typora-root-url: ./..\..\static
         - 15.3.3 Enum 类
         - 15.3.4 App 的命令行接口（A CLI for App）
 
-16. ### [JSON 与 SQL（JSON and SQL）](chapter16.md#json-与-sqljson-and-sql)
+16. ### [第16章 - JSON 与 SQL（JSON and SQL）](chapter16.md#json-与-sqljson-and-sql)
 
     - 16.1 将值编码为 JSON（Encoding values as JSON）
         - 16.1.1 Aeson 与 JSON 解析（Aeson and JSON parsing）
@@ -279,7 +279,7 @@ typora-root-url: ./..\..\static
         - 16.3.2 ToRow 与 FromRow
         - 16.3.3 定义数据库访问动作（Defining actions for database access）
 
-17. ### [使用 Servant 构建 API（APIs using Servant）](chapter17.md#使用-servant-构建-apiapis-using-servant)
+17. ### [第17章 - 使用 Servant 构建 API（APIs using Servant）](chapter17.md#使用-servant-构建-apiapis-using-servant)
 
     - 17.1 定义类型安全 API（Defining a typesafe API）
         - 17.1.1 使用 Servant 的类型化 API（Typed APIs with Servant）
