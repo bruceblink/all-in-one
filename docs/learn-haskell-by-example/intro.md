@@ -61,7 +61,7 @@ typora-root-url: ./..\..\static
         - [2.5.3 完整的凯撒密码（A finished cipher）](chapter2#253-完整的凯撒密码a-finished-cipher)
     - [总结（Summary）](chapter2#总结summary)
 
-3. ### [每行都重要（Every line counts）](chapter3.md#每行都重要every-line-counts)
+3. ### [每一行都至关重要（Every line counts）](chapter3.md#每一行都至关重要every-line-counts)
 
     - 3.1 与外部交互（Talking to the outside）
         - 3.1.1 简单输入输出（Simple actions for input and output）
