@@ -313,7 +313,7 @@ typora-root-url: ./..\..\static
 ## 翻译进度
 
 - [x] 第1章：引言（Introduction）
-- [ ] 第2章：古老的秘密在现代机器上（Ancient secret keeping on modern machines）
+- [x] 第2章：古老的秘密在现代机器上（Ancient secret keeping on modern machines）
 - [ ] 第3章：每行都重要（Every line counts）
 - [ ] 第4章：行号工具（Line numbering tool）
 - [ ] 第5章：单词与图（Words and graphs）
