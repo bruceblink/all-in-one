@@ -53,8 +53,8 @@ typora-root-url: ./..\..\static
         - [2.3.3 逻辑组合（Logical combinations）](chapter2#233-逻辑组合logical-combinations)
     - [2.4 转动轮子（Rotating the wheel）](chapter2#24-旋转转盘rotating-the-wheel)
         - [2.4.1 查找元素索引（Finding an element’s index）](chapter2#241-查找元素的索引finding-an-elements-index)
-        - 2.4.2 查找索引处的元素（Finding the element at an index）
-        - 2.4.3 控制流保护（Guarding control flow）
+        - [2.4.2 查找索引处的元素（Finding the element at an index）](chapter2#242-查找给定索引处的元素)
+        - [2.4.3 控制流保护（Guarding control flow）](chapter2#243-使用守卫控制流程guarding-control-flow)
     - 2.5 字符串转换（Transforming a string）
         - 2.5.1 高阶映射（A higher-order mapping）
         - 2.5.2 类型参数化（Parameterizing types）
