@@ -75,9 +75,10 @@ const config: Config = {
       respectPrefersColorScheme: true,
     },
     navbar: {
-      title: 'Likanug',
+      hideOnScroll: false,
+      title: '',
       logo: {
-        alt: 'My Site Logo',
+        alt: 'Likanug Logo',
         src: 'img/logo.svg',
       },
       items: [
@@ -86,6 +87,16 @@ const config: Config = {
           sidebarId: 'tutorialSidebar',
           position: 'left',
           label: 'Docs',
+        },
+        {
+          to: 'https://blog.likanug.top/',
+          label: 'Blog',
+          position: 'left',
+        },
+        {
+          to: 'https://news.likanug.top/',
+          label: 'News',
+          position: 'left',
         },
         {
           href: 'https://github.com/bruceblink/all-in-one',
