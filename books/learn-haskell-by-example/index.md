@@ -63,10 +63,10 @@ typora-root-url: ./..\..\static
 
 3. ### [第3章 - 每一行都至关重要（Every line counts）](chapter3.md#每一行都至关重要every-line-counts)
 
-    - 3.1 与外部交互（Talking to the outside）
-        - 3.1.1 简单输入输出（Simple actions for input and output）
-        - 3.1.2 模拟循环（Simulating a loop）
-        - 3.1.3 递归动作中断（Breaking out of a recursive action）
+    - [3.1 与外部交互（Talking to the outside）](chapter3#31-与外部交互talking-to-the-outside)
+        - [3.1.1 简单输入输出（Simple actions for input and output）](chapter3#311--简单输入输出simple-actions-for-input-and-output)
+        - [3.1.2 模拟循环（Simulating a loop）](chapter3#312-模拟循环simulating-a-loop)
+        - [3.1.3 跳出递归动作（Breaking out of a recursive action）](chapter3#313-跳出递归动作breaking-out-of-a-recursive-action)
     - 3.2 动作中的纯函数（Pure functions inside of actions）
         - 3.2.1 读取与修改用户输入（Reading and modifying user input）
         - 3.2.2 纯代码与非纯代码的数据流（Data flow between pure and impure code）
