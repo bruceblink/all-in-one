@@ -107,14 +107,19 @@ const config: Config = {
           position: 'left',
         },
         {
-          to: 'https://blog.likanug.top/',
+          href: 'https://blog.likanug.top',
           label: 'Blog',
           position: 'left',
         },
         {
-          to: 'https://news.likanug.top/',
+          href: 'https://news.likanug.top',
           label: 'News',
           position: 'left',
+        },
+        {
+          to: 'https://dash.likanug.top',
+          label: 'Login',
+          position: 'right',
         },
         {
           href: 'https://github.com/bruceblink/all-in-one',
