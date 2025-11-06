@@ -193,8 +193,7 @@ typora-root-url: ./..\..\static
     - 15.9 建议阅读（Suggested Reading）
     - 15.10 习题（Exercises）
 
-### 6. 配套源码
-
+## 配套源码
 [SimpleDB](https://github.com/BruceBlink/simpledb)
 
 ## 翻译进度
@@ -224,6 +223,3 @@ typora-root-url: ./..\..\static
 - 改进项目文档
 - 报告问题或提出建议
 
-## 许可证
-
-本项目采用 MIT 许可证。原著作权属于原作者。
