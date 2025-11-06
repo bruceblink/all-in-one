@@ -117,6 +117,11 @@ const config: Config = {
           position: 'left',
         },
         {
+          href: 'https://tv.likanug.top',
+          label: 'Video',
+          position: 'left',
+        },
+        {
           to: 'https://dash.likanug.top',
           label: 'Login',
           position: 'right',
