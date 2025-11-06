@@ -1,3 +1,8 @@
+---
+sidebar_position: 2
+typora-root-url: ./..\..\static
+---
+
 # Database Design and Implementation Second Edition 中文翻译
 
 ## 简介
