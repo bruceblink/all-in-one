@@ -84,7 +84,7 @@ typora-root-url: ./..\..\static
    - [6.6 建议阅读（Suggested Reading）](chapter6#66-建议阅读-suggested-reading)
    - [6.7 习题（Exercises）](chapter6#67-练习-exercises)
 
-8. ###   [第 7 章：元数据管理（Metadata Management）](chapter7.md#第-7-章-元数据管理metadata-management)
+8. ### [第 7 章：元数据管理（Metadata Management）](chapter7.md#第-7-章-元数据管理metadata-management)
 
    - [7.1 元数据管理器（The Metadata Manager）](chapter7#71-元数据管理器-the-metadata-manager)
    - [7.2 表元数据（Table Metadata）](chapter7#72-表元数据-table-metadata)
@@ -96,7 +96,7 @@ typora-root-url: ./..\..\static
    - [7.8 建议阅读（Suggested Reading）](chapter7#78-建议阅读-suggested-reading)
    - [7.9 习题（Exercises）](chapter7#79-练习-exercises)
 
-9. ###  [第 8 章：查询处理（Query Processing）](chapter8.md#第-8-章-查询处理query-processing)
+9. ### [第 8 章：查询处理（Query Processing）](chapter8.md#第-8-章-查询处理query-processing)
 
    - [8.1 关系代数（Relational Algebra）](chapter8#81-关系代数-relational-algebra)
    - [8.2 扫描（Scans）](chapter8#82-扫描-scans)
@@ -108,28 +108,20 @@ typora-root-url: ./..\..\static
    - [8.8 建议阅读（Suggested Reading）](chapter8#88-建议阅读suggested-reading)
    - [8.9 习题（Exercises）](chapter8#89-练习exercises)
 
-10. ###   [第 9 章：解析（Parsing）](chapter9.md#第-9-章-解析-parsing)
+10. ### [第 9 章：解析（Parsing）](chapter9.md#第-9-章-解析-parsing)
 
-       - [9.1 语法与语义（Syntax Versus Semantics）](chapter9#91-语法与语义-syntax-versus-semantics)
-
-       - [9.2 词法分析（Lexical Analysis）](chapter9#92-词法分析-lexical-analysis)
-
-       - [9.3 SimpleDB 词法分析器（The SimpleDB Lexical Analyzer）](chapter9#93--simpledb的词法分析器-the-simpledb-lexical-analyzer)
-
-       - [9.4 文法（Grammars）](chapter9#94-语法-grammars)
-
-       - [9.5 递归下降解析器（Recursive-Descent Parsers）](chapter9#95-递归下降解析器-recursive-descent-parsers)
-
-       - [9.6 在解析器中添加动作（Adding Actions to the Parser）](chapter9#96-为解析器添加动作-adding-actions-to-the-parser)
-
-       - [9.7 本章小结（Chapter Summary）](chapter9#97-章总结-chapter-summary)
-
-       - [9.8 建议阅读（Suggested Reading）](chapter9#98-建议阅读-suggested-reading)
-
-       - [9.9 习题（Exercises）](chapter9#99-练习-exercises)
+    - [9.1 语法与语义（Syntax Versus Semantics）](chapter9#91-语法与语义-syntax-versus-semantics)
+    - [9.2 词法分析（Lexical Analysis）](chapter9#92-词法分析-lexical-analysis)
+    - [9.3 SimpleDB 词法分析器（The SimpleDB Lexical Analyzer）](chapter9#93--simpledb的词法分析器-the-simpledb-lexical-analyzer)
+    - [9.4 文法（Grammars）](chapter9#94-语法-grammars)
+    - [9.5 递归下降解析器（Recursive-Descent Parsers）](chapter9#95-递归下降解析器-recursive-descent-parsers)
+    - [9.6 在解析器中添加动作（Adding Actions to the Parser）](chapter9#96-为解析器添加动作-adding-actions-to-the-parser)
+    - [9.7 本章小结（Chapter Summary）](chapter9#97-章总结-chapter-summary)
+    - [9.8 建议阅读（Suggested Reading）](chapter9#98-建议阅读-suggested-reading)
+    - [9.9 习题（Exercises）](chapter9#99-练习-exercises)
 
 
-11. ###   [第 10 章：查询规划（Planning）](chapter10.md#第-10-章-规划-planning)
+11. ### [第 10 章：查询规划（Planning）](chapter10.md#第-10-章-规划-planning)
 
     - [10.1 验证（Verification）](chapter10#101-验证-verification)
     - [10.2 查询树评估成本（The Cost of Evaluating a Query Tree）](chapter10#102-评估查询树的成本-the-cost-of-evaluating-a-query-tree)
@@ -152,7 +144,7 @@ typora-root-url: ./..\..\static
     - [11.7 建议阅读（Suggested Reading）](chapter11#117-建议阅读-suggested-reading)
     - [11.8 习题（Exercises）](chapter11#118-练习-exercises)
 
-13. ###  索引（Indexing）
+13. ### 索引（Indexing）
 
     - 12.1 索引的价值（The Value of Indexing）
     - 12.2 SimpleDB 索引（SimpleDB Indexes）
@@ -191,7 +183,7 @@ typora-root-url: ./..\..\static
     - 14.10 建议阅读（Suggested Reading）
     - 14.11 习题（Exercises）
 
-16. ###   查询优化（Query Optimization）
+16. ### 查询优化（Query Optimization）
 
     - 15.1 等价查询树（Equivalent Query Trees）
     - 15.2 查询优化的必要性（The Need for Query Optimization）
