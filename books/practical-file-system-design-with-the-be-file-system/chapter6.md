@@ -4,7 +4,7 @@ typora-root-url: ./..\..\static
 ---
 
 
-# 分配策略 (Allocation Policies)
+# 第 6 章 - 分配策略 (Allocation Policies)
 
 ## 6.1 你把东西放在磁盘的什么位置？(Where Do You Put Things on Disk?)
 

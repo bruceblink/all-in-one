@@ -3,7 +3,7 @@ sidebar_position: 8
 typora-root-url: ./..\..\static
 ---
 
-# 磁盘块缓存 (The Disk Block Cache)
+# 第 8 章 - 磁盘块缓存 (The Disk Block Cache)
 
 当系统中两个设备在访问较慢设备的频率上存在显著不匹配时，系统的整体吞吐量实际上可能会降低到较慢设备的水平。为了缓解这种情况，系统设计者通常会在设计中加入缓存，以降低访问慢速设备的成本。
 

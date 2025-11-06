@@ -3,7 +3,7 @@ sidebar_position: 14
 typora-root-url: ./..\..\static
 ---
 
-# Bibliography
+# 参考(Bibliography)
 
 ## General
 

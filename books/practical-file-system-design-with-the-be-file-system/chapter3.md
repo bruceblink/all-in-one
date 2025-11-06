@@ -3,7 +3,7 @@ sidebar_position: 3
 typora-root-url: ./..\..\static
 ---
 
-# 其他文件系统 (Other File Systems)
+# 第 3 章 - 其他文件系统 (Other File Systems)
 
 Be 文件系统只是众多文件系统中的一个例子。每种操作系统都有自己原生的文件系统，各自提供了一些有趣的功能组合。本节将介绍若干在历史上具有代表性的文件系统（如 BSD FFS）、传统的现代文件系统（Linux ext2）、Macintosh 的 HFS，以及其他更先进的当前文件系统（Windows NT 的 NTFS 以及 SGI Irix 的 XFS）。
 

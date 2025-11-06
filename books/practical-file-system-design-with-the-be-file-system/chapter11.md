@@ -3,7 +3,7 @@ sidebar_position: 11
 typora-root-url: ./..\..\static
 ---
 
-# 用户级 API (User-Level API)
+# 第 11 章 - 用户级 API (User-Level API)
 
 在 BeOS 上，有两种用户级 API 可用于访问文件和目录。BeOS 支持 **POSIX 文件 I/O API**，它提供了路径名和文件描述符的标准概念。此 API 有一些扩展，允许访问属性、索引和查询。我们只会简要讨论标准的 POSIX API，并花更多时间在扩展上。访问 BeOS 上文件的另一个 API 是 **C++ Storage Kit**。C++ API 是一个完整的类层次结构，旨在让 C++ 程序员感到宾至如归。本章大部分时间将讨论 C++ API。然而，本章并非旨在作为编程手册。（有关本章中提及函数的更多具体信息，请参阅《Be 开发者指南》）。
 

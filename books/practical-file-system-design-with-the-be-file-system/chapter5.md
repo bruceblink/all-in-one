@@ -3,7 +3,7 @@ sidebar_position: 5
 typora-root-url: ./..\..\static
 ---
 
-# 属性、索引和查询 (Attributes, Indexing,and Queries)
+# 第 5 章 - 属性、索引和查询 (Attributes, Indexing,and Queries)
 
 本章讨论三个密切相关的主题：属性、索引和查询。这三项功能为文件系统增添了强大的能力，并赋予文件系统许多通常只有数据库才具备的特性。本章旨在说明为什么属性、索引和查询是现代文件系统的重要功能。我们将既讨论这些机制的高层次问题，也深入讲解 BFS（Be File System）的具体实现细节。
 

@@ -3,7 +3,7 @@ sidebar_position: 7
 typora-root-url: ./..\..\static
 ---
 
-# 日志 (Journaling)
+# 第 7 章 - 日志 (Journaling)
 
 Journaling（日志记录），也称为logging，是一种确保磁盘上数据结构正确性的机制。本章的目标是解释什么是journaling，文件系统如何实现它，以及提高journaling性能的技术。
 

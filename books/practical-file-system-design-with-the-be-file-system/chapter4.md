@@ -3,7 +3,7 @@ sidebar_position: 4
 typora-root-url: ./..\..\static
 ---
 
-# BFS的数据结构 (The Data Structures of BFS)
+# 第 4 章 - BFS的数据结构 (The Data Structures of BFS)
 
 ## 4.1 什么是磁盘？(What Is a Disk?)
 

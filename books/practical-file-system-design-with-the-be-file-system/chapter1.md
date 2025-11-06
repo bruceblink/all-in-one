@@ -3,7 +3,7 @@ sidebar_position: 1
 typora-root-url: ./..\..\static
 ---
 
-# BeOS 和 BFS 简介（Introduction to the BeOS and BFS）
+# 第 1 章 - BeOS 和 BFS 简介（Introduction to the BeOS and BFS）
 
 ## 1.1 BFS 的历史背景（History Leading Up to BFS）
 
