@@ -1356,7 +1356,7 @@ public class ConcurrencyMgr {
 
 `sLock` 方法首先检查事务是否已经持有该块的锁；如果是，则无需访问锁表。否则，它调用锁表的 `sLock` 方法并等待锁的授予。如果事务已经持有该块的排他锁，`xLock` 方法则不需要做任何事情。如果不是，该方法首先获取该块的共享锁，然后获取排他锁。（回想一下，锁表的 `xLock` 方法假定事务已经持有共享锁。）请注意，排他锁比共享锁“更强”，从某种意义上说，一个事务如果在一个块上持有排他锁，则它也隐式地持有该块的共享锁。
 
-### 5.5 实现 SimpleDB 事务 (Implementing SimpleDB Transactions)
+## 5.5 实现 SimpleDB 事务 (Implementing SimpleDB Transactions)
 
 第 5.2 节介绍了 `Transaction` 类的 API。现在可以讨论它的实现了。`Transaction` 类使用 `BufferList` 类来管理它已经**固定 (pinned)** 的缓冲区。这两个类将依次讨论。
 
