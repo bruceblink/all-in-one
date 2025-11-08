@@ -70,9 +70,9 @@ typora-root-url: ./..\..\static
     - [3.2 动作中的纯函数（Pure functions inside of actions）](chapter3#32-动作中的纯函数pure-functions-inside-of-actions)
         - [3.2.1 读取与修改用户输入（Reading and modifying user input）](chapter3#321-读取与修改用户输入reading-and-modifying-user-input)
         - [3.2.2 纯代码与非纯代码的数据流（Data flow between pure and impure code）](chapter3#322-纯代码与非纯代码之间的数据流data-flow-between-pure-and-impure-code)
-    - 3.3 从环境读取（Reading from the environment）
-        - 3.3.1 解析命令行参数（Parsing command line arguments）
-        - 3.3.2 使用 Maybe 编码错误（Encoding errors with Maybe）
+    - [3.3 从环境中读取数据（Reading from the environment）](chapter3#33-从环境中读取数据reading-from-the-environment)
+        - [3.3.1 解析命令行参数（Parsing command line arguments）](chapter3#331-解析命令行参数parsing-command-line-arguments)
+        - [3.3.2 用 `Maybe` 表示错误（Encoding errors with Maybe）](chapter3#332-用-maybe-表示错误encoding-errors-with-maybe)
     - 3.4 示例：读取并打印命令行参数（Example: Reading and printing a command line argument）
         - 3.4.1 let 关键字（The let keyword）
         - 3.4.2 使用 stack 运行程序（Running the program with stack）
