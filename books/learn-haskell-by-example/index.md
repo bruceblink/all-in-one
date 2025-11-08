@@ -73,9 +73,9 @@ typora-root-url: ./..\..\static
     - [3.3 从环境中读取数据（Reading from the environment）](chapter3#33-从环境中读取数据reading-from-the-environment)
         - [3.3.1 解析命令行参数（Parsing command line arguments）](chapter3#331-解析命令行参数parsing-command-line-arguments)
         - [3.3.2 用 `Maybe` 表示错误（Encoding errors with Maybe）](chapter3#332-用-maybe-表示错误encoding-errors-with-maybe)
-    - 3.4 示例：读取并打印命令行参数（Example: Reading and printing a command line argument）
-        - 3.4.1 let 关键字（The let keyword）
-        - 3.4.2 使用 stack 运行程序（Running the program with stack）
+    - [3.4 示例：读取并打印命令行参数（Example: Reading and printing a command line argument）](chapter3#34-示例读取并打印命令行参数example-reading-and-printing-a-command-line-argument)
+        - [3.4.1 let 关键字（The let keyword）](chapter3#341-let-关键字)
+        - [3.4.2 使用 stack 运行程序（Running the program with stack）](chapter3#342-使用-stack-运行程序running-the-program-with-stack)
 
 4. ### [第4章 - 行号工具（Line numbering tool）](chapter4.md#line-numbering-tool)
 

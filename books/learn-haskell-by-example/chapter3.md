@@ -413,3 +413,141 @@ indexOf :: Char -> [Char] -> Maybe Int
 
 
 
+## 3.4 示例：读取并打印命令行参数（Example: Reading and printing a command line argument）
+
+现在，我们可以使用刚刚实现的 `fromMaybe` 函数，当用户忘记提供文件路径时打印一条有帮助的提示文字。
+ 我们还可以使用 `maybe` 函数，根据传入的文件路径决定该执行的操作：如果路径缺失，则打印帮助信息；否则，从解析出的参数构造相应的操作。下面的代码演示了这一思路。程序会在有参数时打印参数内容，否则打印帮助文本。
+
+**代码清单 3.7** 如果没有提供参数则打印帮助文本的程序
+
+```haskell
+module Main (main) where
+import System.Environment
+
+printHelpText :: String -> IO ()
+printHelpText msg = do
+  putStrLn (msg ++ "\n")
+  progName <- getProgName  -- #1
+  putStrLn ("Usage: " ++ progName ++ " <filename>")  -- #2
+
+parseArguments :: [String] -> Maybe FilePath
+parseArguments [filePath] = Just filePath     -- #3
+parseArguments _ = Nothing                    -- #3
+
+main :: IO ()
+main = do
+  cliArgs <- getArgs  -- #4
+  let mFilePath = parseArguments cliArgs
+  maybe                -- #5
+    (printHelpText "Missing filename")  -- #6
+    (\filePath -> putStrLn filePath)    -- #7
+    mFilePath
+```
+
+- **#1** 获取程序被调用时的名称
+- **#2** 打印使用说明
+- **#3** 解析文件名参数
+- **#4** 获取命令行参数
+- **#5** 根据解析结果选择要执行的 `IO` 操作
+- **#6** 如果解析失败则打印帮助文本
+- **#7** 如果解析成功则打印文件名
+
+这段代码综合了我们目前所学的内容：它从环境中读取参数 → 解析 → 根据结果决定是打印帮助信息还是打印传入的文件名。
+
+> 💡 **注意**
+>  当定义局部变量是某种 `Maybe` 类型时，习惯上会在变量名前加小写字母 **m**。
+>  例如，`mFilePath` 表示一个“可能包含文件路径”的 `Maybe` 值。
+
+这个例子演示了如何使用 `Maybe` 类型来实现**纯函数式的错误处理**，并根据结果灵活改变控制流。令人惊讶的是，这里我们执行的“动作”本身也可以是函数的结果——这一点在 `maybe` 函数的使用中表现得很清楚。根据解析结果的不同，`maybe` 会为不同的动作（action）求值。换句话说，**纯函数 `maybe` 决定了程序要在外部环境中执行什么操作**。在学习 Haskell 时，理解这一点非常重要：不仅**函数**是值，**动作（actions）**本身也是值。
+
+---
+
+### 3.4.1 `let` 关键字
+
+在我们的例子中，还出现了一个新关键字——`let`。它用于在动作（actions）中创建定义（称为 **let 绑定**），类似于其他语言中的局部变量定义。最基本的用法如下：
+
+```haskell
+let <标识符> = <表达式>
+```
+
+例如：
+
+```haskell
+let x = 1 + 1
+```
+
+但请不要被这种语法所迷惑——我们**并不是在创建可变变量**。 通过 `let` 创建的标识符必须被视为**不可变的数据或常量**。
+
+> 💡 **注意**
+>  我们也可以使用 `let` 绑定来定义函数，只需在标识符后面加上参数即可，例如：
+>
+> ```haskell
+> let functionName arg1 arg2 arg3 = …
+> ```
+>
+> 这样做可以在定义内部函数时使用外层函数的参数。
+
+这在让嵌套表达式更清晰，或在多次使用同一个表达式时，尤其有用。我们可以在之前的示例程序中看到这种用法：
+
+```haskell
+main = do
+  line <- getLine
+  putStrLn (map toUpper line)
+```
+
+表达式 `map toUpper line` 可以在使用之前绑定到一个新的标识符上：
+
+```haskell
+main = do
+  line <- getLine
+  let upperCaseLine = map toUpper line
+  putStrLn upperCaseLine
+```
+
+`let` 关键字还可以在普通函数定义之外使用，因为它本身就是表达式的一部分。例如：
+
+```haskell
+ghci> let x = 1 + 1 in x + 1 :: Int
+3
+```
+
+这里我们将表达式 `1 + 1` 绑定到标识符 `x`，并显式声明其类型为 `Int`。当 `let` 用于表达式中时，必须用 `in` 关键字结束，以指明该绑定在什么表达式范围内有效。
+
+### 3.4.2 使用 stack 运行程序（Running the program with stack）
+
+接下来，我们来测试清单 3.7 中代码的运行行为。我们可以通过 `stack run` 来构建并运行可执行文件。不过要注意：向程序传递参数时必须使用特殊的语法格式：
+
+```
+stack run <传递给 stack 的参数> -- <传递给程序的参数>
+```
+
+也就是说，当我们要向可执行文件传递参数时，必须在参数前加上 `--`。首先测试不带参数的情况：
+
+```bash
+$ stack run
+Missing file name
+Usage: lnums-exe <file name>
+```
+
+程序成功打印了帮助信息。这里读取到的程序名是 `lnums-exe`。在本例中，项目名是 `lnums`，而 `stack` 会自动为可执行文件加上 `-exe` 后缀。再试一次，带上一个参数：
+
+```bash
+$ stack run -- Testpath
+Testpath
+```
+
+程序正确地解析并打印了该参数。至此，我们已经实现了一个可扩展的命令行参数解析器的基础。
+
+现在，我们的程序基础已经完成：能够读取、解析命令行参数并作出响应。这是程序中最主要的**非纯（impure）部分**。下一步，我们将学习如何从文件系统读取文件内容并对其进行行号编号——这就是下一章的主题。
+
+## 小结（Summary）
+
+- **IO 动作**用于与操作系统环境交互，如文件或网络的输入输出。
+- Haskell 运行时系统负责执行 IO 动作的求值顺序，我们只需指定动作的排列顺序。
+- **do 语法**用于定义动作序列及其结果如何传递。
+- 可以通过**递归函数**来模拟循环。
+- `return` 用于将值包装成 IO 动作，而不是从动作中“返回”。
+- 使用 `if-then-else` 时，两分支必须产生相同类型的动作。
+- 动作中的表达式可由纯函数构成，因此可在不纯代码中使用纯逻辑。
+- **Maybe** 是一个代数数据类型，用于在可能出错的函数中安全返回值，避免 `undefined`。
+- **let** 关键字用于在动作或表达式中创建局部绑定。
