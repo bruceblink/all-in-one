@@ -80,8 +80,8 @@ typora-root-url: ./..\..\static
 4. ### [第4章 - 行号工具（Line numbering tool）](chapter4.md#line-numbering-tool)
 
     - [4.1 文件读取与内容转换（Reading files and transforming their content）](chapter4#41-文件读取与内容转换reading-files-and-transforming-their-content)
-        - 4.1.1 编写纯库（Writing a pure library）
-        - 4.1.2 隐藏辅助参数（Hiding auxiliary arguments）
+        - [4.1.1 编写纯库（Writing a pure library）](chapter4#411-编写纯库writing-a-pure-library)
+        - [4.1.2 隐藏辅助参数（Hiding auxiliary arguments）](chapter4#412-隐藏辅助参数hiding-auxiliary-arguments)
     - 4.2 高阶函数的参数化行为（Parametrized behavior in higher-order functions）
         - 4.2.1 函数部分应用（Partial function application）
     - 4.3 代数数据结构作为可能性的编码（Algebraic data structures as an encoding of possibilities）
