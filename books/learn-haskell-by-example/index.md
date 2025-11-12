@@ -84,8 +84,8 @@ typora-root-url: ./..\..\static
         - [4.1.2 隐藏辅助参数（Hiding auxiliary arguments）](chapter4#412-隐藏辅助参数hiding-auxiliary-arguments)
     - [4.2 高阶函数的参数化行为（Parametrized behavior in higher-order functions）](chapter4#42高阶函数中的参数化行为parametrized-behavior-in-higher-order-functions)
         - [4.2.1 函数部分应用（Partial function application）](chapter4#421部分函数应用partial-function-application)
-    - 4.3 代数数据结构作为可能性的编码（Algebraic data structures as an encoding of possibilities）
-        - 4.3.1 求和类型或标记联合（Sum types or tagged unions）
+    - [4.3 用代数数据结构表示各种可能性（Algebraic data structures as an encoding of possibilities）](chapter4#43-用代数数据结构表示各种可能性algebraic-data-structures-as-an-encoding-of-possibilities)
+        - [4.3.1 求和类型或标记联合（Sum types or tagged unions）](chapter4#431-和类型sum-types或标记联合tagged-unions)
         - 4.3.2 不要重复自己（Don’t repeat yourself）
         - 4.3.3 zip 函数（The zip function）
         - 4.3.4 处理缺失值（Working with missing values）
