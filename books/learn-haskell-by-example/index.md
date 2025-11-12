@@ -86,10 +86,10 @@ typora-root-url: ./..\..\static
         - [4.2.1 函数部分应用（Partial function application）](chapter4#421部分函数应用partial-function-application)
     - [4.3 用代数数据结构表示各种可能性（Algebraic data structures as an encoding of possibilities）](chapter4#43-用代数数据结构表示各种可能性algebraic-data-structures-as-an-encoding-of-possibilities)
         - [4.3.1 求和类型或标记联合（Sum types or tagged unions）](chapter4#431-和类型sum-types或标记联合tagged-unions)
-        - 4.3.2 不要重复自己（Don’t repeat yourself）
-        - 4.3.3 zip 函数（The zip function）
-        - 4.3.4 处理缺失值（Working with missing values）
-        - 4.3.5 使用 mapM 打印值列表（Printing a list of values with mapM）
+        - [4.3.2 不要重复自己（Don’t repeat yourself）](chapter4#432-不要重复自己dont-repeat-yourself)
+        - [4.3.3 zip 函数（The zip function）](chapter4#433-zip-函数the-zip-function)
+        - [4.3.4 处理缺失值（Working with missing values）](chapter4#434-处理缺失值working-with-missing-values)
+        - [4.3.5 使用 mapM 打印值列表（Printing a list of values with mapM）](chapter4#435-使用-mapm-打印值列表printing-a-list-of-values-with-mapm)
     - 4.4 从库到可执行程序（From library to executable）
         - 4.4.1 命令行选项编码与解析（Encoding and parsing command line options）
         - 4.4.2 项目概览（An overview of the project）
