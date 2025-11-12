@@ -188,3 +188,215 @@ ghci> numberAllLines ["Hello", "", "World"]
 [(Just 1,"Hello"),(Just 2,""),(Just 3,"World")]
 ```
 
+## 4.2 高阶函数中的参数化行为（Parametrized behavior in higher-order functions）
+
+接下来我们来解决检测空行的问题。我们希望给用户提供一个选项：是否为这些空行编号。但这意味着我们首先要能检测出空行。当然，如果一行是空的（不包含任何字符），我们可以认为它是空行。然而，如果这一行只包含控制字符（无法打印）或空白字符呢？在这种情况下，我们也应该把它视为空行。我们需要的是一个**谓词函数**，用于判断一个字符串是否应被视为空。换句话说，它是一个返回布尔值的函数。要检测字符串中是否包含控制字符或空白字符，我们可以使用 `Data.Char` 模块中的一些实用函数：
+
+- `isPrint` 判断字符是否可打印；
+- `isSeparator` 判断字符是否为空白符或其他 Unicode 分隔符。
+
+```haskell
+ghci> import Data.Char
+ghci> isPrint 'a'
+True
+ghci> isPrint '\n'
+False
+ghci> isSeparator ' '
+True
+ghci> isSeparator 'a'
+False
+```
+
+我们可以利用这些函数构建一个谓词，用来检测字符串是否为空或仅由不可打印字符组成。为此，可以使用 `all` 函数，它用于检查列表中所有元素是否满足给定谓词：
+
+```haskell
+ghci> all (\x -> x == 1) [1,1,1 :: Int]
+True
+ghci> all (\x -> x == 1) [1,1,2 :: Int]
+False
+```
+
+我们可以据此编写一个函数：若字符串为空，或者仅包含不可打印字符或空白符，则返回 `True`。该函数如下所示：
+
+**代码清单 4.4：检测字符串中是否至少包含一个可打印字符的谓词**
+
+```haskell
+isEmpty :: String -> Bool
+isEmpty str =
+  null str                     -- #1
+    || all (\s -> not (isPrint s) || isSeparator s) str   -- #2
+```
+
+- \#1 若字符串为空，则返回 `True`；
+- \#2 若字符串仅包含不可打印字符或分隔符，也返回 `True`。
+
+现在我们可以测试这个函数：
+
+```haskell
+ghci> isEmpty "Test"
+False
+ghci> isEmpty "    "
+True
+ghci> isEmpty "\n  "
+True
+ghci> isEmpty "A   "
+False
+```
+
+此外，我们还可以定义它的对偶函数，用于检查字符串**是否非空**：
+
+```haskell
+isNotEmpty :: String -> Bool
+isNotEmpty str = not (isEmpty str)
+```
+
+现在，我们可以开始修改行号函数。由于我们想基于字符串的谓词来控制流程，因此我们已经知道新函数参数的类型应为 `String -> Bool`。我们需要两个谓词：
+
+- 一个用于判断是否应递增计数器；
+- 一个用于判断是否应为某行编号。
+
+新的函数签名如下：
+
+```haskell
+numberLines :: (String -> Bool) -> (String -> Bool) -> [String] -> NumberedLines
+numberLines shouldIncr shouldNumber text = ...
+```
+
+我们将函数改名为 `numberLines`，因为它现在是一个通用的行编号函数。在函数定义中，我们可以用 `if-then-else` 语句在 `let` 绑定里控制是为某行编号、是否递增计数器，或两者都不做。代码如下：
+
+**代码清单 4.5：通用的高阶行编号函数**
+
+```haskell
+numberLines :: (String -> Bool) -> (String -> Bool) -> [String] -> NumberedLines
+numberLines shouldIncr shouldNumber text =
+  let go :: Int -> [String] -> NumberedLines         -- #1
+      go _ [] = []                                  -- #2
+      go counter (x : xs) =
+        let mNumbering = if shouldNumber x then Just counter else Nothing  -- #3
+            newCounter = if shouldIncr x then counter + 1 else counter     -- #4
+         in (mNumbering, x) : go newCounter xs                             -- #5
+   in go 1 text                                                           -- #6
+```
+
+- \#1 局部定义的函数类型签名；
+- \#2 当输入列表为空时返回空列表，即递归终止条件；
+- \#3 若谓词判断应编号，则为当前行赋予编号；
+- \#4 若谓词判断应计数，则递增计数器；
+- \#5 使用新变量递归调用；
+- \#6 以固定初始值 `1` 调用辅助函数。
+
+通过这些谓词，我们可以控制计数与编号行为。由此，我们能基于该函数构建不同变体。
+
+### 4.2.1 部分函数应用（Partial Function Application）
+
+为了定义一个“给所有行编号”的函数，我们需要两个始终返回 `True` 的函数，因为我们总是想计数并编号。我们可以这样写：
+
+```haskell
+(\_ -> True)
+```
+
+这个函数会忽略输入并始终返回 `True`。但我们还可以更一般地写出一个函数，它始终返回某个常量，并忽略第二个参数：
+
+```haskell
+const :: a -> b -> a
+const x = (\_ -> x)
+```
+
+现在，表达式 `const True` 与之前的 `(\_ -> True)` 等价。注意它的类型签名：我们使用了两个自由类型变量。通过让第二个参数的类型为 `b`，我们说明它可以与第一个参数类型不同。我们可以把这个函数改写成更常见的形式：
+
+```haskell
+const :: a -> b -> a
+const x _ = x
+```
+
+这样，我们得到一个可以生成常量一元函数的通用函数。实际上，这个函数在 Haskell 中已经存在！于是我们可以用它来定义 `numberAllLines`：
+
+```haskell
+numberAllLines :: [String] -> NumberedLines
+numberAllLines text = numberLines (const True) (const True) text
+```
+
+看起来有些奇怪：`const True` 明明是一个二元函数，为什么只传了一个参数？这就是**部分函数应用**（partial application）的威力。在 Haskell（以及许多其他函数式语言）中，你不必一次性提供函数的所有参数；若缺少参数，表达式会计算为另一个仍然“等待”缺失参数的函数。例如，当我们有表达式 `(\x -> f x)` 时，可以执行 **η（eta）化简**：它会被简化为 `f`。这种化简可以重复应用于多参数函数，使得我们能写出极为简洁的定义。让我们看看 `const` 的例子： `const True` 等价于 `(\_ -> True)`，其类型由 `const :: a -> b -> a` 推得：第一个参数是 `True`，所以 `a` 的类型是 `Bool`，最终类型为：
+
+```
+b -> Bool
+```
+
+也就是说，它接受任意类型的参数并返回 `Bool`，这完全合理，因为参数被忽略了。
+
+我们甚至可以对 `numberAllLines` 再进行一次 η 化简：
+
+```haskell
+numberAllLines :: [String] -> NumberedLines
+numberAllLines = numberLines (const True) (const True)
+```
+
+从类型上看也完全吻合：`numberLines` 的类型是`(String -> Bool) -> (String -> Bool) -> [String] -> NumberedLines`，
+ 而 `const True` 的类型是 `b -> Bool`。将 `b` 替换为 `String` 后，结果类型正好是 `[String] -> NumberedLines`。
+
+> 💡 **提示：**
+>  η 化简是一种让函数定义更简洁的好方法。
+>  它在 Haskell 代码中极为常见。虽然不是必须使用，但熟悉它能帮助你更轻松地阅读他人的代码。
+
+我们可以测试 `numberAllLines` 是否正常工作：
+
+```haskell
+numberAllLines ["Hello", "", "World", "!"]
+[(Just 1,"Hello"),(Just 2,""),(Just 3,"World"),(Just 4,"!")]
+```
+
+确实，所有行都被编号了。但我们并非为了这种简单情况才泛化函数——让我们来忽略一些行吧。
+
+**练习：使用 η 化简**
+
+上一章的项目实现时没有使用 η 化简，以便语法更易理解。
+ 现在你已经了解了这种化简，请查看项目源码，看看哪些地方可以进行 η 化简。
+
+接下来我们编写一个函数：它对每一行都递增计数器，但**不为空行编号**。我们可以继续使用 `numberLines` 的两个谓词参数：第一个应始终返回 `True`（总是计数），第二个则应是我们之前定义的“非空行”谓词。
+
+```haskell
+numberNonEmptyLines :: [String] -> NumberedLines
+numberNonEmptyLines = numberLines (const True) isNotEmpty
+```
+
+同样，我们使用 η 化简避免写出 `[String]` 参数。测试如下：
+
+```haskell
+ghci> numberNonEmptyLines ["Hello", "", "World", "!"]
+[(Just 1,"Hello"),(Nothing,""),(Just 3,"World"),(Just 4,"!")]
+```
+
+我们始终递增计数器，但不为空行编号。再写一个版本：既不为空行编号，也不在空行上递增计数器。
+
+```haskell
+numberAndIncrementNonEmptyLines :: [String] -> NumberedLines
+numberAndIncrementNonEmptyLines = numberLines isNotEmpty isNotEmpty
+```
+
+测试结果：
+
+```haskell
+ghci> numberAndIncrementNonEmptyLines ["Hello", "", "World", "!"]
+[(Just 1,"Hello"),(Nothing,""),(Just 2,"World"),(Just 3,"!")]
+```
+
+至此，我们从通用定义（代码清单 4.5）派生出了三个功能差异明显的函数，概述如下：
+
+**代码清单 4.6：根据不同条件为行编号的三种变体**
+
+```haskell
+numberAllLines :: [String] -> NumberedLines
+numberAllLines = numberLines (const True) (const True)          -- #1
+
+numberNonEmptyLines :: [String] -> NumberedLines
+numberNonEmptyLines = numberLines (const True) isNotEmpty       -- #2
+
+numberAndIncrementNonEmptyLines :: [String] -> NumberedLines
+numberAndIncrementNonEmptyLines = numberLines isNotEmpty isNotEmpty  -- #3
+```
+
+- \#1 为每一行编号；
+- \#2 仅为非空行编号，但空行也会计数；
+- \#3 仅为非空行编号，空行既不编号也不计数。
+
+通过这些定义，我们可以清楚地看到，只需编写简单的布尔谓词，就能灵活地控制何时为行编号、何时递增行号。
