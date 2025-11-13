@@ -815,3 +815,256 @@ shell $ stack run -- --skip-empty --left-align --reverse testFile.txt
 1  at, vehicula ipsum.
 ```
 
+### 4.4.2 项目概览(An overview of the project)
+
+让我们回顾一下整个程序！项目的完整 **Main 模块** 如代码清单 4.15 所示，而 **Lib 模块** 如代码清单 4.17 所示。
+
+**代码清单 4.15：主模块中的头部、数据类型和工具函数**
+
+```haskell
+module Main (main) where
+import Data.Maybe             -- #1
+import Lib                    -- #1
+import System.Environment     -- #1
+
+data LineNumberOption         -- #2
+  = ReverseNumbering
+  | SkipEmptyLines
+  | LeftAlign
+  deriving (Eq)
+
+lnOptionFromString :: String -> Maybe LineNumberOption      -- #3
+lnOptionFromString "--reverse" = Just ReverseNumbering
+lnOptionFromString "--skip-empty" = Just SkipEmptyLines
+lnOptionFromString "--left-align" = Just LeftAlign
+lnOptionFromString _ = Nothing
+
+printHelpText :: String -> IO ()       -- #4
+printHelpText msg = do
+  putStrLn (msg ++ "\n")
+  progName <- getProgName              -- #5
+  putStrLn ("Usage: " ++ progName ++ " <options> <filename>")
+  putStrLn "\n"
+  putStrLn " Options:"
+  putStrLn "   --reverse      - Reverse the numbering"
+  putStrLn "   --skip-empty   - Skip numbering empty lines"
+  putStrLn "   --left-align   - Use left-aligned line numbers"
+
+parseArguments :: [String] -> (Maybe FilePath, [LineNumberOption])
+parseArguments args = case reverse args of     -- #6
+  [] -> (Nothing, [])
+  (filename : options) ->
+    ( Just filename,
+      mapMaybe lnOptionFromString options
+    )
+```
+
+**说明：**
+
+1. 导入程序定义所需的模块。
+2. 定义一个数据类型，表示命令行参数选项。
+3. 定义一个函数，用于解析单个命令行参数。
+4. 定义一个函数，用于为用户打印帮助文本。
+5. 返回程序运行时的名称。
+6. 定义一个函数，用于从命令行参数中解析文件名和选项。
+
+------
+
+程序首先会读取命令行参数并对其进行解析。最后一个参数会被解释为**文件名**，而其余参数则作为可选参数处理。
+如果无法从命令行中提取文件名，则会打印帮助文本；否则，从文件中读取内容。这些选项用于通过切换不同函数定义来改变程序行为。
+
+该应用程序会生成带行号的文本，将其转换为人类可读的形式，然后打印输出，最后程序退出。以下是其具体实现：
+
+**代码清单 4.16：为文本添加行号的主模块**
+
+```haskell
+readLines :: FilePath -> IO [String]     -- #1
+readLines filePath = do
+  contents <- readFile filePath
+  return (lines contents)
+
+main :: IO ()
+main = do
+  cliArgs <- getArgs                    -- #2
+  let (mFilePath, options) = parseArguments cliArgs    -- #3
+      numberFunction =                  -- #4
+        if SkipEmptyLines `elem` options
+          then numberNonEmptyLines
+          else numberAllLines
+      padMode =                         -- #5
+        if LeftAlign `elem` options
+          then PadRight
+          else PadLeft
+
+  let go filePath = do
+        fileLines <- readLines filePath                -- #6
+        let numbered = numberFunction fileLines        -- #7
+            prettyNumbered = prettyNumberedLines padMode numbered  -- #8
+            revNumbered = numberFunction (reverse fileLines)       -- #9
+            revPretty = reverse (prettyNumberedLines padMode revNumbered)
+        mapM_
+          putStrLn
+          ( if ReverseNumbering `elem` options          -- #10
+              then revPretty
+              else prettyNumbered
+          )
+  maybe
+    (printHelpText "Missing filename")   -- #11
+    go                                   -- #12
+    mFilePath
+```
+
+**说明：**
+
+1. 读取文件内容并按行拆分。
+2. 读取程序执行时的命令行参数。
+3. 解析参数，提取文件名及选项。
+4. 根据 `--skip-empty` 选项选择行号生成函数。
+5. 根据 `--left-align` 选项选择左或右对齐模式。
+6. 读取文件内容。
+7. 使用选定的编号函数为行添加行号。
+8. 将行号转换为可读格式。
+9. 对行进行反转后重新编号与格式化。
+10. 根据 `--reverse` 选项决定输出正常或反向行号。
+11. 若未提供文件名，打印帮助信息。
+12. 若提供文件名，则执行正常流程。
+
+主函数定义了程序的主要逻辑。是否执行取决于参数解析是否得到有效文件路径。
+
+> 💡 练习：添加更多选项
+
+你可能已经注意到，我们没有使用 `numberAndIncrementNonEmptyLines` 函数。这个函数不仅跳过空行编号，还不增加计数器。此外，当前的参数解析还很粗糙：未检查无效参数；缺少 `--help` 选项用于显示帮助文本。请将这些功能添加到程序中！
+
+除此之外，你可以为该工具添加更多功能，例如：不打印空行；仅在新段落时增加计数。功能的扩展几乎是无穷无尽的！如果需要灵感，可以参考 GNU 的 `nl` 工具。发挥创意吧！
+
+库模块包含行号数据类型的定义以及创建这些行号的工具函数。其导出列表如下：
+
+```haskell
+module Lib
+  ( NumberedLine,
+    NumberedLines,
+    isEmpty,
+    isNotEmpty,
+    numberLines,
+    numberAllLines,
+    numberNonEmptyLines,
+    numberAndIncrementNonEmptyLines,
+    prettyNumberedLines,
+    PadMode (..),
+    pad,
+    padLeft,
+    padRight,
+  )
+where
+```
+
+与行号相关的定义如下代码所示。
+
+**代码清单 4.17：库模块的头部、数据类型和工具函数**
+
+```haskell
+import Data.Char           -- #1
+
+type NumberedLine = (Maybe Int, String)      -- #2
+type NumberedLines = [NumberedLine]          -- #2
+
+isEmpty :: String -> Bool                    -- #3
+isEmpty str =
+  null str
+    || all (\s -> not (isPrint s) || isSeparator s) str
+
+isNotEmpty :: String -> Bool                 -- #4
+isNotEmpty str = not (isEmpty str)
+```
+
+**说明：**
+
+1. 导入 `Data.Char` 模块。
+2. 定义行号类型。
+3. 定义用于判断字符串是否为空的布尔谓词。
+4. 定义用于判断字符串是否非空的布尔谓词。
+
+还包含了一些用于从字符串列表创建 **NumberedLines** 值的函数，如下代码所示。这些函数构成了我们与该模块交互的接口。
+
+**代码清单 4.18：从字符串列表创建带行号的函数**
+
+```haskell
+numberLines :: (String -> Bool) -> (String -> Bool) -> [String] -> NumberedLines
+numberLines shouldIncr shouldNumber text =
+  let go :: Int -> [String] -> NumberedLines
+      go _ [] = []
+      go counter (x : xs) =
+        let mNumbering = if shouldNumber x then Just counter else Nothing   -- #3
+            newCounter = if shouldIncr x then counter + 1 else counter      -- #3
+         in (mNumbering, x) : go newCounter xs
+   in go 1 text
+
+numberAllLines :: [String] -> NumberedLines
+numberAllLines = numberLines (const True) (const True)
+
+numberNonEmptyLines :: [String] -> NumberedLines
+numberNonEmptyLines = numberLines (const True) isNotEmpty
+
+numberAndIncrementNonEmptyLines :: [String] -> NumberedLines
+numberAndIncrementNonEmptyLines = numberLines isNotEmpty isNotEmpty
+```
+
+**说明：**
+
+1. 定义了一个可定制的行编号函数，两个谓词分别决定是否计数、是否编号。
+2. 局部定义递归辅助函数。
+3. 基于布尔谓词计算当前行号与下一行的计数器值。
+4. 通过偏函数定义了具体的编号策略函数。
+
+最后，我们还定义了一些函数，用于将带行号的内容转换为**人类可读的形式**。这一部分的代码如下表所示。请注意，我们同样可以在其他程序中复用这段代码！这正是我们将其实现为**库模块（library module）**的原因。
+
+**代码清单 4.19：将带行号的行转换成人类可读的字符串**
+
+```haskell
+prettyNumberedLines :: PadMode -> NumberedLines -> [String]
+prettyNumberedLines mode lineNums =
+  let (numbers, text) = unzip lineNums                      -- #2
+      numberStrings = map (maybe "" show) numbers           -- #3
+      maxLength = maximum (map length numberStrings)        -- #4
+      paddedNumbers = map (pad mode maxLength) numberStrings-- #5
+   in zipWith (\n l -> n ++ " " ++ l) paddedNumbers text    -- #5
+
+data PadMode = PadLeft | PadRight                          -- #6
+
+pad :: PadMode -> Int -> String -> String                  -- #7
+pad mode n str =
+  let diff = n - length str
+      padding = replicate diff ' '
+   in case mode of                                          -- #8
+        PadLeft -> padding ++ str
+        PadRight -> str ++ padding
+
+padLeft :: Int -> String -> String = pad PadLeft            -- #9
+padRight :: Int -> String -> String = pad PadRight          -- #9
+```
+
+**说明：**
+
+1. 定义一个将编号行转换为可读文本的函数。
+2. 拆分编号与文本。
+3. 将行号转换为字符串。
+4. 计算最长行号的长度。
+5. 统一补齐行号长度并拼接文本。
+6. 定义枚举类型，区分左填充或右填充。
+7. 定义填充函数，用空格补齐指定长度。
+8. 根据填充模式决定空格方向。
+9. 提供左右填充的快捷函数。
+
+理解我们如何在库模块中封装纯代码，并将其整合到可执行模块中的非纯代码中，这一点非常重要。我们实际上是在**将纯与非纯混合使用**，但同时**保持那些提供主要功能的关键函数不受任何副作用影响**！
+
+## 总结
+
+- `readFile` 和 `writeFile` 用于读写文件系统中的文件。
+- 函数可以接收其他函数作为参数，从而影响控制流和数据流。
+- `let` 可用于在函数内部定义辅助函数，用于隐藏递归所需的额外参数。
+- **η（Eta）化简** 可用于省略不必要的函数参数，使定义更简洁。
+- **部分应用（partial application）** 允许通过提供部分参数来生成新的函数。
+- `data` 关键字用于定义代数数据类型（Sum Type），用于表示可区分的值。
+- `zip` 与 `zipWith` 用于按元素组合两个列表。
+- `mapM` 可用于对带有副作用的操作进行映射；`mapM_` 则忽略其结果。
+
