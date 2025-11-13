@@ -652,3 +652,166 @@ mapM_ :: (a -> IO b) -> [a] -> IO ()
 尝试自己实现它们！先仔细分析纯 `map` 是如何构成的，然后查看本章开头的 `interactiveLines` 示例。你可以用相同思路实现 `mapM` 与 `mapM_`。
 
 由于我们这里只关心把字符串列表打印出来，所以 `mapM_` 正好满足我们的需求。用它打印编号行非常简单直接。
+
+## 4.4 从库到可执行程序（From library to executable）
+
+现在，我们可以把所有东西整合起来了！我们可以修改上一章的代码，让它能够读取用户指定文件中的行，对这些行进行编号，生成美观的编号版本，然后打印到屏幕上，如下示例所示。
+
+**代码清单 4.11 提供行编号工具基本功能的主程序**
+
+```haskell
+main :: IO ()
+main = do
+  cliArgs <- getArgs         -- #1
+  let mFilePath = parseArguments cliArgs     -- #2
+  maybe
+    (printHelpText "Missing filename")      -- #3
+    ( \filePath -> do
+        fileLines <- readLines filePath             -- #4
+        let numbered = numberAllLines fileLines     -- #5
+            prettyNumbered = prettyNumberedLines
+                             PadLeft numbered        -- #6
+        mapM_ putStrLn prettyNumbered               -- #7
+    )
+    mFilePath
+```
+
+**说明：**
+ 1️⃣ 读取程序启动时传入的命令行参数
+ 2️⃣ 解析文件名参数
+ 3️⃣ 如果参数数量不正确，则输出帮助文本
+ 4️⃣ 从文件中读取所有行
+ 5️⃣ 对文件中的每一行进行编号
+ 6️⃣ 生成带有行号的易读字符串表示
+ 7️⃣ 将结果打印到屏幕上
+
+把所有模块组合起来之后，我们终于可以测试程序了！让我们试着对一些行进行编号：
+
+```bash
+shell $ stack run -- testFile.txt
+ 1 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas a
+ 2 mattis nisi, eleifend auctor erat. Vivamus nisl sapien, suscipit non
+ 3 gravida sed, mattis a velit. Fusce non iaculis urna, a volutpat leo.
+ 4 Ut non mauris vel massa tincidunt mattis. Sed eu viverra lectus.
+ 5 Donec pulvinar justo quis condimentum suscipit. Donec vel odio eu
+ 6 odio maximus consequat at at tellus. Ut placerat suscipit vulputate.
+ 7 Donec eu eleifend massa, et aliquet ipsum.
+ 8
+ 9 Mauris eget massa a tellus tristique consequat. Nunc tempus sit amet
+10 est sit amet malesuada. Curabitur ultrices in leo vitae tristique.
+11 Suspendisse potenti. Nam dui risus, gravida eu scelerisque sit amet,
+12 tincidunt id neque. In sit amet purus gravida, venenatis lectus sit
+13 amet, gravida massa. In iaculis commodo massa, in viverra est mollis
+14 et. Nunc vehicula felis a vestibulum egestas. Phasellus eu libero sed
+15 odio facilisis feugiat id quis velit. Proin a ex dapibus, lacinia dui
+16 at, vehicula ipsum.
+```
+
+在这里，我们可以清楚地看到 `PadLeft` 让行号右对齐了。
+ 这个工具的功能与我们的预期大致一致。
+ 接下来，我们清单上的最后一项任务是——**添加更多选项**。
+
+------
+
+### 4.4.1 命令行选项编码与解析（Encoding and parsing command line options）
+
+最后，我们希望为程序添加更多选项。对于这个简单的应用程序，我们希望支持以下三个参数：
+
+- `--reverse`：反转行号顺序
+- `--skip-empty`：跳过空行编号
+- `--left-align`：行号左对齐
+
+为了在程序中表示这些选项，我们可以使用**代数数据类型（Algebraic Data Type）**。如下所示（代码清单 4.12）。这里出现了一个新关键字 `deriving`，我们将在下一章详细介绍。目前你只需要知道，它允许我们为这个数据类型派生（derive）`Eq` 类型类，以便比较是否相等。
+
+**代码清单 4.12 表示行号程序选项的数据类型**
+
+```haskell
+data LineNumberOption
+  = ReverseNumbering     -- #1
+  | SkipEmptyLines        -- #2
+  | LeftAlign              -- #3
+  deriving (Eq)            -- #4
+```
+
+**说明：**
+ 1️⃣ 表示 `--reverse`
+ 2️⃣ 表示 `--skip-empty`
+ 3️⃣ 表示 `--left-align`
+ 4️⃣ 为此类型派生 `Eq` 类型类
+
+------
+
+基于这个数据类型，我们可以编写一个函数来将字符串解析为相应的构造器。这里我们再次使用 `Maybe`，以表示解析可能会失败。
+
+**代码清单 4.13 将字符串解析为选项类型的函数**
+
+```haskell
+lnOptionFromString :: String -> Maybe LineNumberOption
+lnOptionFromString "--reverse"    = Just ReverseNumbering    -- #1
+lnOptionFromString "--skip-empty" = Just SkipEmptyLines      -- #1
+lnOptionFromString "--left-align" = Just LeftAlign           -- #1
+lnOptionFromString _ = Nothing                              -- #2
+```
+
+**说明：**
+ 1️⃣ 将匹配的字符串解析为对应构造器
+ 2️⃣ 无法解析的字符串返回 `Nothing`
+
+假设命令行参数的顺序是固定的：**选项在前，文件名在后**。这会让解析变得简单一些。我们可以使用 `reverse` 函数先反转参数列表。这样，文件名（原本最后一个）就成了反转后列表的第一个元素，这让我们可以方便地使用 `x:xs` 模式进行匹配。解析剩余的参数时，我们可以使用 `Data.Maybe` 模块中的 `mapMaybe`（类型为 `(a -> Maybe b) -> [a] -> [b]`）来调用 `lnOptionFromString`。`mapMaybe` 会自动忽略所有 `Nothing` 值，也就是说无法解析的参数会被跳过。最终，我们返回一个 `Maybe FilePath` 和一个选项列表 `[LineNumberOption]`：
+
+**代码清单 4.14 解析命令行参数的函数**
+
+```haskell
+import Data.Maybe
+...
+parseArguments :: [String] -> (Maybe FilePath, [LineNumberOption])
+parseArguments args = case reverse args of                     -- #1
+  [] -> (Nothing, [])                                           -- #2
+  (filename : options) ->
+    ( Just filename,                                            -- #3
+      mapMaybe lnOptionFromString options                       -- #4
+    )
+```
+
+**说明：**
+ 1️⃣ 对反转后的参数列表进行模式匹配
+ 2️⃣ 参数为空时返回空结果
+ 3️⃣ 如果存在文件名则返回 `Just filename`
+ 4️⃣ 解析选项参数，忽略无效项
+
+最后，我们可以将其整合进清单 4.11 的 `main` 函数中。在修改程序控制流之前，先停下来思考一下：程序的控制流主要由所使用的函数决定。当我们希望根据某些变量（如选项）来改变控制流时，在 Haskell 中，一个更优雅的做法是——**直接切换函数**。Haskell 中的函数是值，可以像其他值一样被传递、赋值。所以，与其把选项作为参数传入，不如根据选项动态选择不同的函数。
+
+例如：
+
+```haskell
+let numberFunction =
+      if SkipEmptyLines `elem` options      -- #1
+        then numberNonEmptyLines            -- #2
+        else numberAllLines                 -- #2
+```
+
+**说明：**
+ 1️⃣ 检查 `SkipEmptyLines` 是否存在于选项列表中
+ 2️⃣ 根据结果选择合适的函数
+
+这里我们假设 `options` 的类型为 `[LineNumberOption]`，它来自于上面 `parseArguments` 的结果。我们将函数赋值给变量 `numberFunction`，实质上是**根据布尔表达式的结果改变函数定义**。这让我们能够将选项逻辑优雅地融入主流程中。示例执行效果如下：
+
+```bash
+shell $ stack run -- --skip-empty --left-align --reverse testFile.txt
+16 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas a
+15 mattis nisi, eleifend auctor erat. Vivamus nisl sapien, suscipit non
+14 gravida sed, mattis a velit. Fusce non iaculis urna, a volutpat leo.
+13 Ut non mauris vel massa tincidunt mattis. Sed eu viverra lectus.
+12 Donec pulvinar justo quis condimentum suscipit. Donec vel odio eu
+11 odio maximus consequat at at tellus. Ut placerat suscipit vulputate.
+10 Donec eu eleifend massa, et aliquet ipsum.
+8  Mauris eget massa a tellus tristique consequat. Nunc tempus sit amet
+7  est sit amet malesuada. Curabitur ultrices in leo vitae tristique.
+6  Suspendisse potenti. Nam dui risus, gravida eu scelerisque sit amet,
+5  tincidunt id neque. In sit amet purus gravida, venenatis lectus sit
+4  amet, gravida massa. In iaculis commodo massa, in viverra est mollis
+3  et. Nunc vehicula felis a vestibulum egestas. Phasellus eu libero sed
+2  odio facilisis feugiat id quis velit. Proin a ex dapibus, lacinia dui
+1  at, vehicula ipsum.
+```
+

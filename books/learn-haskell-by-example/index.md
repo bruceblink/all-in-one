@@ -90,8 +90,8 @@ typora-root-url: ./..\..\static
         - [4.3.3 zip 函数（The zip function）](chapter4#433-zip-函数the-zip-function)
         - [4.3.4 处理缺失值（Working with missing values）](chapter4#434-处理缺失值working-with-missing-values)
         - [4.3.5 使用 mapM 打印值列表（Printing a list of values with mapM）](chapter4#435-使用-mapm-打印值列表printing-a-list-of-values-with-mapm)
-    - 4.4 从库到可执行程序（From library to executable）
-        - 4.4.1 命令行选项编码与解析（Encoding and parsing command line options）
+    - [4.4 从库到可执行程序（From library to executable）](chapter4#44-从库到可执行程序from-library-to-executable)
+        - [4.4.1 命令行选项编码与解析（Encoding and parsing command line options）](chapter4#441-编码与解析命令行选项encoding-and-parsing-command-line-options)
         - 4.4.2 项目概览（An overview of the project）
 
 5. ### [第5章 - 单词与图（Words and graphs）](chapter5.md#单词与图words-and-graphs)
