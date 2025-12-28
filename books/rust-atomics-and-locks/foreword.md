@@ -3,7 +3,7 @@ sidebar_position: 2
 typora-root-url: ./..\..\static
 ---
 
-# 序 forward
+# 序 Forward
 
 
 本书对 Rust 语言中的底层并发机制进行了极为出色的概览，涵盖了线程、锁、引用计数、原子操作、邮箱/通道（mailboxes/channels）以及诸多其他内容。书中深入探讨了 CPU 与操作系统层面的相关问题，并对在 Linux、macOS 和 Windows 上正确实现并发代码所固有的挑战进行了总结。我尤其高兴看到，Mara 使用**可实际运行的 Rust 代码**来讲解这些主题。全书最后还讨论了信号量、无锁链表、队列锁（queued locks）、序列锁（sequence locks），甚至还包括 RCU。
