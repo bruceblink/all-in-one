@@ -1,0 +1,238 @@
+---
+sidebar_position: 4
+typora-root-url: ./..\..\static
+---
+
+# 第 1 章 Rust 并发基础
+
+早在多核处理器尚未普及之前，操作系统就已经允许一台计算机同时运行多个程序。这是通过在进程之间快速切换来实现的，使每个进程依次获得一点点执行进度。如今，几乎所有的计算机，甚至手机和手表，都配备了多核处理器，能够真正地并行执行多个进程。
+
+操作系统会尽可能地将各个进程彼此隔离，使得一个程序在运行时可以专注于自己的工作，而完全无需知道其他进程在做什么。例如，一个进程通常不能直接访问另一个进程的内存，也不能以任何方式与其通信，除非先请求操作系统内核的帮助。
+
+不过，一个程序可以在同一进程内创建***额外的执行线程***。处于同一进程中的线程并不会彼此隔离，它们共享内存，并且可以通过这块共享内存相互交互。
+
+本章将介绍如何在 Rust 中创建线程，以及与线程相关的所有基础概念，例如如何在多个线程之间安全地共享数据。本章中解释的概念是全书其余内容的基础。
+
+> 如果你已经熟悉 Rust 的这些部分，可以直接跳到后面的章节。不过，在继续阅读下一章之前，请务必确保你已经很好地理解了以下内容：线程、内部可变性（interior mutability）、`Send` 和 `Sync`，以及什么是互斥锁（mutex）、条件变量（condition variable）和线程停泊（thread parking）。
+
+
+
+## **Rust 中的线程** （Threads in Rust）
+
+每个程序都恰好从一个线程开始：主线程（main thread）。这个线程会执行你的 `main` 函数，并且在需要时可以用来创建更多的线程。
+
+在 Rust 中，新线程是通过标准库里的 `std::thread::spawn` 函数创建的。它只接受一个参数：新线程要执行的函数。当这个函数返回时，线程也就随之结束。
+
+我们来看一个示例：
+
+```rust
+use std::thread;
+
+fn main() {
+    thread::spawn(f);
+    thread::spawn(f);
+    println!("Hello from the main thread.");
+}
+
+fn f() {
+    println!("Hello from another thread!");
+    let id = thread::current().id();
+    println!("This is my thread id: {id:?}");
+}
+```
+
+这里我们创建了两个线程，它们都会以 `f` 作为各自的主函数来执行。这两个线程都会打印一条消息并显示它们的线程 ID，而主线程也会打印一条自己的消息。
+
+
+>  **线程 ID**
+>
+> Rust 标准库会为每个线程分配一个唯一的标识符。这个标识符可以通过 `Thread::id()` 获取，其类型是 `ThreadId`。你几乎不能对 `ThreadId` 做太多事情，除了复制它以及进行相等性比较。标准库并不保证这些 ID 是连续分配的，只保证每个线程的 ID 都彼此不同。
+
+如果你多运行几次上面的示例程序，可能会注意到输出在不同运行之间会有所差异。下面是我在某一次运行时，在自己机器上得到的输出结果：
+
+```
+Hello from the main thread.
+Hello from another thread!
+This is my thread id:
+```
+
+令人意外的是，输出内容似乎缺失了一部分。
+
+刚才发生的情况是：主线程在新创建的线程还没有执行完各自的函数之前，就已经执行完了 `main` 函数。
+一旦从 `main` 返回，整个程序就会退出，即使此时仍然有其他线程在运行。
+
+在这个具体的示例中，其中一个新创建的线程只来得及把第二条消息打印到一半，程序就被主线程终止了。
+
+如果我们希望在从 `main` 返回之前确保所有线程都已经执行完成，就需要等待它们结束，也就是对它们进行 *join*。为此，我们必须使用 `spawn` 函数返回的 `JoinHandle`：
+
+```rust
+fn main() {
+    let t1 = thread::spawn(f);
+    let t2 = thread::spawn(f);
+    println!("Hello from the main thread.");
+    t1.join().unwrap();
+    t2.join().unwrap();
+}
+```
+
+`.join()` 方法会一直等待，直到对应的线程执行完毕，并返回一个 `std::thread::Result`。
+如果线程因为发生 panic 而没有成功完成函数执行，这个结果中就会包含 panic 的信息。我们可以尝试对这种情况进行处理，或者像这里一样直接调用 `.unwrap()`，在尝试 join 一个发生 panic 的线程时让当前线程也 panic。
+
+运行这个版本的程序后，就不会再出现输出被截断的情况了：
+
+```
+Hello from the main thread.
+Hello from another thread!
+This is my thread id: ThreadId(3)
+Hello from another thread!
+This is my thread id: ThreadId(2)
+```
+
+唯一仍然会在多次运行之间发生变化的，是这些消息被打印出来的顺序，例如：
+
+```
+Hello from the main thread.
+Hello from another thread!
+Hello from another thread!
+This is my thread id: ThreadId(2)
+This is my thread id: ThreadId(3)
+```
+
+> **输出锁定**
+>
+> `println!` 宏会使用 `std::io::Stdout::lock()` 来确保输出过程不会被打断。在真正写入任何内容之前，一个 `println!()` 表达式会等待所有正在并发执行的 `println!()` 完成。
+> 如果不是这样，我们就可能看到更加交错、难以阅读的输出，例如：
+>
+> Hello fromHello from another thread!
+>
+> another This is my threthreadHello fromthread id: ThreadId!
+>
+> ( the main thread.
+>
+> 2)This is my thread 
+>
+> id: ThreadId(3)
+
+相比前面示例中直接把函数名传给 `std::thread::spawn`，更常见的做法是向它传入一个闭包。这样我们就可以捕获一些值，并将它们移动到新线程中：
+
+```rust
+let numbers = vec![1, 2, 3];
+thread::spawn(move || {
+    for n in numbers {
+        println!("{n}");
+    }
+}).join().unwrap();
+```
+
+在这里，由于使用了 `move` 闭包，`numbers` 的所有权被转移给了新创建的线程。如果没有使用 `move` 关键字，闭包就会通过引用来捕获 `numbers`。这会导致编译错误，因为新线程的生命周期可能会长于该变量本身。
+
+由于一个线程可能会一直运行到程序执行的最后，`spawn` 函数对其参数类型施加了 `'static` 生命周期约束。换句话说，它只接受那些可以被长期保存的函数或闭包。而一个通过引用捕获局部变量的闭包，就无法满足这一要求——一旦该局部变量离开作用域，这个引用立刻就会失效。
+
+要从线程中取回一个值，可以通过在闭包中返回该值来实现。这个返回值可以从 `join` 方法返回的 `Result` 中获取：
+
+```rust
+let numbers = Vec::from_iter(0..=1000);
+let t = thread::spawn(move || {
+    let len = numbers.len();
+    let sum = numbers.into_iter().sum::<usize>();
+    sum / len
+});
+let average = t.join().unwrap();
+println!("average: {average}");
+```
+
+在这里，线程闭包返回的值会通过 `join` 方法传回主线程。
+如果 `numbers` 为空，那么线程在尝试做除零运算时就会发生 panic，而 `join` 会返回这个 panic 信息；由于我们对其调用了 `unwrap()`，主线程也会因此发生 panic。
+
+
+> **线程构建器（Thread Builder）**
+>
+> `std::thread::spawn` 函数实际上只是`std::thread::Builder::new().spawn().unwrap()`
+> 这一写法的一个便捷封装。
+>
+> `std::thread::Builder` 允许你在创建线程之前对其进行一些配置。你可以用它来设置新线程的栈大小，也可以为新线程指定一个名字。
+> 线程的名字可以通过 `std::thread::current().name()` 获取，它会出现在 panic 信息中，并且在大多数平台上的监控和调试工具里都是可见的。
+>
+> 此外，`Builder` 的 `spawn` 方法会返回一个 `std::io::Result`，从而允许你显式地处理线程创建失败的情况。这种失败可能发生在操作系统内存不足，或者你的程序被施加了资源限制时。
+> 相比之下，`std::thread::spawn` 在无法创建新线程时会直接 panic。
+
+
+
+## **作用域线程（Scoped Threads）**
+
+如果我们能够确定，一个被创建的线程**一定不会**比某个作用域活得更久，那么这个线程就可以安全地借用一些并非“永久存在”的东西，比如局部变量——只要这些被借用的值至少能活到该作用域结束为止。
+
+Rust 标准库提供了 `std::thread::scope` 函数，用来创建这种**受作用域限制的线程**。它允许我们创建一些线程，并保证这些线程绝不会活过传入该函数的闭包作用域，从而使安全地借用局部变量成为可能。
+
+它的工作方式通过一个示例最容易理解：
+
+```rust
+let numbers = vec![1, 2, 3];
+
+thread::scope(|s| { //(1)
+    s.spawn(|| { //(2)
+        println!("length: {}", numbers.len());
+    });
+    s.spawn(|| { //(2)
+        for n in &numbers {
+            println!("{n}");
+        }
+    });
+}); //(3)
+```
+
+> (1) 我们调用 `std::thread::scope`，并向它传入一个闭包。这个闭包会被立即执行，并且接收一个参数 `s`，表示当前的作用域。
+
+> (2) 我们使用 `s` 来创建线程。这里传入的闭包可以直接借用像 `numbers` 这样的局部变量。
+
+> (3) 当作用域结束时，所有尚未被 `join` 的线程都会被自动 `join`。
+
+这种模式保证了：在该作用域内创建的所有线程，都不可能比这个作用域活得更久。正因为如此，这种作用域内的 `spawn` 方法**不要求**其参数类型满足 `'static` 约束，从而允许我们引用任何生命周期至少覆盖该作用域的值，例如这里的 `numbers`。
+
+在上面的示例中，两个新线程都在并发地访问 `numbers`。这完全没有问题，因为它们（以及主线程）都没有对其进行修改。但如果我们把第一个线程改成去修改 `numbers`，如下所示，编译器就不会再允许我们创建另一个同样使用 `numbers` 的线程：
+
+```rust
+let mut numbers = vec![1, 2, 3];
+
+thread::scope(|s| {
+    s.spawn(|| {
+        numbers.push(1);
+    });
+    s.spawn(|| {
+        numbers.push(2); // 错误！
+    });
+});
+```
+
+具体的错误信息会随着 Rust 编译器版本的不同而有所变化（因为编译器一直在改进诊断信息），但尝试编译上述代码时，通常会得到类似下面的错误：
+
+```
+error[E0499]: cannot borrow `numbers` as mutable more than once at a time
+ --> example.rs:7:13
+  |
+4 |     s.spawn(|| {
+  |              -- 第一次可变借用发生在这里
+5 |         numbers.push(1);
+  |         ------- 第一次借用是由于在闭包中使用了 `numbers`
+  |
+7 |     s.spawn(|| {
+  |              ^^ 第二次可变借用发生在这里
+8 |         numbers.push(2);
+  |         ------- 第二次借用是由于在闭包中使用了 `numbers`
+```
+
+
+> **Leakpocalypse（“泄漏末日”）**
+>
+> 在 Rust 1.0 之前，标准库中曾经有一个名为 `std::thread::scoped` 的函数，它的行为和 `std::thread::spawn` 类似，都会直接创建一个线程。
+> 不同之处在于，它允许捕获非 `'static` 的值，因为它返回的不是 `JoinHandle`，而是一个 `JoinGuard`：当这个 `JoinGuard` 被丢弃（drop）时，线程就会被自动 `join`。因此，任何被借用的数据只需要活到这个 `JoinGuard` 被丢弃为止即可。只要 `JoinGuard` 最终一定会被丢弃，这看起来似乎是安全的。
+>
+> 然而，在 Rust 1.0 发布前不久，人们逐渐意识到：**根本无法保证某个值一定会被丢弃**。
+> 存在很多方式——例如构造一个由引用计数节点组成的环——可以让某个值被“遗忘”或泄漏，而不会触发它的 `drop`。
+>
+> 最终，在后来被一些人称为 **“Leakpocalypse”** 的事件中，大家得出了一个结论：一个（安全的）接口设计，**不能依赖“对象最终一定会被 drop”这一假设**。
+> 泄漏一个对象，合理的后果可以是连带泄漏更多对象（例如泄漏一个 `Vec` 也会泄漏其中的元素），但绝不能导致未定义行为（undefined behavior）。
+>
+> 基于这一结论，`std::thread::scoped` 被认为是不安全的，并最终从标准库中移除。同时，`std::mem::forget` 也从一个 `unsafe` 函数升级为安全函数，用以强调这样一个事实：**遗忘（或泄漏）某个值始终是可能发生的事情**。
+>
+> 直到很久之后，在 Rust 1.63 中，一个采用全新设计的 `std::thread::scoped`（也就是如今的 `std::thread::scope`）才被重新引入标准库，而这一次的设计不再依赖 `Drop` 来保证正确性。

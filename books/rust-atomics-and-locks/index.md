@@ -1,5 +1,5 @@
 ---
-sidebar_position: 4
+sidebar_position: 1
 typora-root-url: ./..\..\static
 ---
 
@@ -20,7 +20,7 @@ typora-root-url: ./..\..\static
 
 ### [序](foreword.md)
 ### [前言](preface.md)
-### [第1章 : Rust 并发基础（Basics of Rust Concurrency）]()
+### [第1章 : Rust 并发基础（Basics of Rust Concurrency）](chapter1.md)
 ### [第2章 : 原子操作（Atomics）]()
 ### [第3章 : 内存顺序（Memory Ordering）]()
 ### [第4章 : 构建我们自己的自旋锁（Building Our Own Spin Lock）]()
