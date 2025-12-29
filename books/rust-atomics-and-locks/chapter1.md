@@ -550,3 +550,81 @@ fn f(v: &RefCell<Vec<i32>>) {
 `UnsafeCell` 是内部可变性的基础构建块。`UnsafeCell<T>` 包装一个 `T`，但不提供任何防止未定义行为的约束。`get()` 方法返回原始指针，只能在 unsafe 块中使用。
 
 大多数情况下，`UnsafeCell` 并不直接使用，而是被封装在提供安全接口的类型中，如 `Cell` 或 `Mutex`。所有具有内部可变性的类型都是基于 `UnsafeCell` 构建的。
+
+## **线程安全：Send 和 Sync** (Thread Safety: Send and Sync)
+
+在本章中，我们已经看到一些类型并非线程安全，只能在单线程中使用，例如 `Rc`、`Cell` 等。为了避免未定义行为，这种限制需要由编译器理解并检查，这样你就可以安全地使用这些类型，而无需使用 `unsafe` 块。
+
+Rust 使用两个特殊的 trait 来追踪哪些类型可以安全地在多线程中使用：
+
+***Send***
+
+如果一个类型可以被发送到另一个线程，它就是 **Send** 类型。换句话说，如果该类型的值的所有权可以转移到另一个线程，它就是 Send。例如，`Arc<i32>` 是 Send，而 `Rc<i32>` 不是。
+
+***Sync***
+
+如果一个类型可以被多个线程共享，它就是 **Sync** 类型。换句话说，类型 `T` 是 Sync 当且仅当对该类型的共享引用 `&T` 是 Send。例如，`i32` 是 Sync，而 `Cell<i32>` 不是。（但 `Cell<i32>` 是 Send。）
+
+所有原始类型（如 `i32`、`bool`、`str`）都是 Send 和 Sync。
+
+Send 和 Sync 都是 ***自动 trait***，这意味着它们会基于字段自动为你的类型实现。如果一个结构体的所有字段都是 Send 和 Sync，那么结构体本身也是 Send 和 Sync。
+
+想要“取消”某个 trait，只需在类型中加入一个不实现该 trait 的字段。为此，特殊类型 `std::marker::PhantomData<T>` 非常有用。编译器会把它当作 `T` 处理，但它在运行时实际上不存在，是零大小类型，不占空间。
+
+示例：
+
+```rust
+use std::marker::PhantomData;
+
+struct X {
+    handle: i32,
+    _not_sync: PhantomData<Cell<()>>,
+}
+```
+
+在这个例子中，如果 `handle` 是唯一字段，`X` 将既是 Send 又是 Sync。但我们加入了一个零大小的 `PhantomData<Cell<()>>` 字段，它会被视作 `Cell<()>`。由于 `Cell<()>` 不是 Sync，`X` 也不是 Sync，但仍然是 Send，因为它的所有字段都是 Send。
+
+原始指针（`*const T` 和 `*mut T`）既不是 Send 也不是 Sync，因为编译器无法判断它们所代表的数据。
+
+实现 Send 或 Sync 与实现其他 trait 相同，只需使用 `impl` 块即可：
+
+```rust
+struct X {
+    p: *mut i32,
+}
+
+unsafe impl Send for X {}
+unsafe impl Sync for X {}
+```
+
+注意，实现这些 trait 需要 `unsafe` 关键字，因为编译器无法验证你的实现是否正确。这是你对编译器的承诺，编译器会信任你。
+
+如果尝试将非 Send 类型发送到另一个线程，编译器会阻止你：
+
+```rust
+fn main() {
+    let a = Rc::new(123);
+    thread::spawn(move || { // Error!
+        dbg!(a);
+    });
+}
+```
+
+这里我们尝试将 `Rc<i32>` 发送到新线程，但 `Rc<i32>` 不像 `Arc<i32>` 那样实现 Send。
+
+编译错误示例：
+
+```
+error[E0277]: `Rc<i32>` cannot be sent between threads safely
+ --> src/main.rs:3:5
+3 | thread::spawn(move || {
+  | ^^^^^^^^^^^^^ `Rc<i32>` cannot be sent between threads safely
+= help: within `[closure]`, the trait `Send` is not implemented for `Rc<i32>`
+note: required because it's used within this closure --> src/main.rs:3:19
+3 | thread::spawn(move || {|
+  |                   ^^^^^^^
+note: required by a bound in `spawn`
+```
+
+`thread::spawn` 要求其参数是 Send，且闭包只有在所有捕获值都是 Send 时才是 Send。如果尝试捕获非 Send 类型，编译器会报错，从而保护我们避免未定义行为。
+
