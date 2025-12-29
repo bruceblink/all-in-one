@@ -9,3 +9,5 @@ sidebar_position: 1
 [database-design-and-implementation-second-edition - 中文翻译](database-design-and-implementation-second-edition/)
 
 [learn-haskell-by-example - 中文翻译](learn-haskell-by-example/)
+
+[rust-atomics-and-locks - 中文翻译](rust-atomics-and-locks/)
