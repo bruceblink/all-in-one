@@ -132,7 +132,7 @@ const config: Config = {
           position: 'right',
         },
         {
-          href: 'https://github.com/bruceblink/all-in-one',
+          href: 'https://github.com/bruceblink',
           label: 'GitHub',
           position: 'right',
         },
