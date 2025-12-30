@@ -755,3 +755,142 @@ public class BasicUpdatePlanner implements UpdatePlanner {
 
 方法 `executeCreateTable`、`executeCreateView` 和 `executeCreateIndex` 与其他方法不同，因为它们不需要访问任何数据记录，因此不需要扫描。它们仅调用元数据管理器的方法 `createTable`、`createView` 和 `createIndex`，使用解析器提供的相关信息，并返回 0 表示没有记录受到影响。
 
+### 10.6 SimpleDB 的规划器（The SimpleDB Planner）
+
+规划器是数据库引擎的一个组件，用于将 SQL 语句转换为执行计划。SimpleDB 的规划器由 `Planner` 类实现，其 API 如图 10.16 所示。
+
+两个方法的第一个参数都是 SQL 语句的字符串表示。
+
+- `createQueryPlan` 方法为输入的查询字符串创建并返回一个执行计划。
+- `executeUpdate` 方法为输入的字符串创建计划并执行它，然后返回受影响的记录数（类似 JDBC 中的 `executeUpdate` 方法）。
+
+客户端可以通过调用 `SimpleDB` 类中的静态方法 `planner` 来获取一个 `Planner` 对象。图 10.17 展示了 `PlannerTest` 类的代码，演示了如何使用规划器。
+
+- 代码的第一部分演示了 SQL 查询的处理。查询字符串被传入规划器的 `createQueryPlan` 方法，返回一个计划。打开该计划会得到一个扫描（scan），然后可以访问并打印记录。
+- 代码的第二部分演示了 SQL 更新命令的处理。
+
+```java
+public Plan createQueryPlan(String query, Transaction tx);
+public int executeUpdate(String cmd, Transaction tx);
+```
+
+图 10.16 SimpleDB 规划器的 API
+
+```java
+public class PlannerTest {
+    public static void main(String[] args) {
+        SimpleDB db = new SimpleDB("studentdb");
+        Planner planner = db.planner();
+        Transaction tx = db.newTx();
+
+        // part 1: 处理查询
+        String qry = "select sname, gradyear from student";
+        Plan p = planner.createQueryPlan(qry, tx);
+        Scan s = p.open();
+        while (s.next())
+            System.out.println(s.getString("sname") + " " + s.getInt("gradyear"));
+        s.close();
+
+        // part 2: 处理更新命令
+        String cmd = "delete from STUDENT where MajorId = 30";
+        int num = planner.executeUpdate(cmd, tx);
+        System.out.println(num + " students were deleted");
+        tx.commit();
+    }
+}
+```
+
+图 10.17 `PlannerTest` 类
+
+1. **解析 SQL 语句**：方法调用解析器（parser），传入输入字符串；解析器返回一个包含 SQL 语句信息的对象。例如，查询语句返回 `QueryData` 对象，插入语句返回 `InsertData` 对象，依此类推。
+2. **验证 SQL 语句**：方法检查 `QueryData`（或 `InsertData` 等）对象，判断其语义是否有效。
+3. **创建 SQL 执行计划**：方法使用规划算法生成与语句对应的查询树，并基于该树创建计划。
+   4a. **返回计划**（`createQueryPlan` 方法）
+   4b. **执行计划**（`executeUpdate` 方法）：方法通过打开计划生成扫描，然后迭代扫描，对每条记录执行相应的更新，并返回受影响的记录数。
+
+图 10.18 总结了 `createQueryPlan` 和 `executeUpdate` 的执行步骤：
+
+命令字符串被传入规划器的 `executeUpdate` 方法，由该方法完成所有必要操作。
+
+SimpleDB 的规划器有两个方法：一个处理查询，一个处理更新。两个方法的输入处理方式非常类似，主要区别在于它们如何处理生成的计划：
+
+- `createQueryPlan` 直接返回计划
+- `executeUpdate` 打开并执行计划
+
+```java
+public class Planner {
+    private QueryPlanner qplanner;
+    private UpdatePlanner uplanner;
+
+    public Planner(QueryPlanner qplanner, UpdatePlanner uplanner) {
+        this.qplanner = qplanner;
+        this.uplanner = uplanner;
+    }
+
+    public Plan createQueryPlan(String cmd, Transaction tx) {
+        Parser parser = new Parser(cmd);
+        QueryData data = parser.query();
+        // 此处应验证查询语句...
+        return qplanner.createPlan(data, tx);
+    }
+
+    public int executeUpdate(String cmd, Transaction tx) {
+        Parser parser = new Parser(cmd);
+        Object obj = parser.updateCmd();
+        // 此处应验证更新命令...
+        if (obj instanceof InsertData)
+            return uplanner.executeInsert((InsertData)obj, tx);
+        else if (obj instanceof DeleteData)
+            return uplanner.executeDelete((DeleteData)obj, tx);
+        else if (obj instanceof ModifyData)
+            return uplanner.executeModify((ModifyData)obj, tx);
+        else if (obj instanceof CreateTableData)
+            return uplanner.executeCreateTable((CreateTableData)obj, tx);
+        else if (obj instanceof CreateViewData)
+            return uplanner.executeCreateView((CreateViewData)obj, tx);
+        else if (obj instanceof CreateIndexData)
+            return uplanner.executeCreateIndex((CreateIndexData)obj, tx);
+        else
+            return 0; // 理论上不会出现
+    }
+}
+```
+
+图 10.19 SimpleDB 类 `Planner` 的代码
+
+`Planner` 对象依赖查询规划器（QueryPlanner）和更新规划器（UpdatePlanner）来执行实际规划。这些对象通过 `Planner` 构造函数传入，从而可以用不同的规划算法配置规划器。例如，第 15 章介绍了一个高级查询规划器 `HeuristicQueryPlanner`；只需将其对象传入 `Planner` 构造函数，就可以替代 `BasicQueryPlanner`。这种可插拔能力通过 Java 接口实现。
+
+`Planner` 构造函数的参数属于接口 `QueryPlanner` 和 `UpdatePlanner`，其代码如图 10.20。`BasicQueryPlanner` 和 `BasicUpdatePlanner` 类实现了这些接口，第 15 章的高级规划器也实现了这些接口。
+
+`Planner` 对象由 `SimpleDB` 类的构造函数创建，构造函数会创建一个基本查询规划器和一个基本更新规划器，并将它们传给 `Planner` 构造函数，如图 10.21 所示。若想更换查询规划器，只需修改 `SimpleDB` 构造函数以创建不同的 `QueryPlanner` 和 `UpdatePlanner` 对象即可。
+
+```java
+public interface QueryPlanner {
+    public Plan createPlan(QueryData data, Transaction tx);
+}
+
+public interface UpdatePlanner {
+    public int executeInsert(InsertData data, Transaction tx);
+    public int executeDelete(DeleteData data, Transaction tx);
+    public int executeModify(ModifyData data, Transaction tx);
+    public int executeCreateTable(CreateTableData data, Transaction tx);
+    public int executeCreateView(CreateViewData data, Transaction tx);
+    public int executeCreateIndex(CreateIndexData data, Transaction tx);
+}
+```
+
+图 10.20 SimpleDB 的 `QueryPlanner` 和 `UpdatePlanner` 接口代码
+
+```java
+public SimpleDB(String dirname) {
+    ...
+    mdm = new MetadataMgr(isnew, tx);
+    QueryPlanner qp = new BasicQueryPlanner(mdm);
+    UpdatePlanner up = new BasicUpdatePlanner(mdm);
+    planner = new Planner(qp, up);
+    ...
+}
+```
+
+图 10.21 SimpleDB 创建其规划器的代码
+
