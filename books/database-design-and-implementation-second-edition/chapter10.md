@@ -894,3 +894,137 @@ public SimpleDB(String dirname) {
 
 图 10.21 SimpleDB 创建其规划器的代码
 
+### 10.7 本章小结（Chapter Summary）
+
+- 为了构造给定查询的最优成本扫描，数据库系统需要估算遍历一个扫描所需的块访问数。对于扫描 `s`，定义了以下估算函数：
+  - `B(s)` 表示遍历扫描 `s` 所需的块访问数。
+  - `R(s)` 表示扫描 `s` 输出的记录数。
+  - `V(s, F)` 表示扫描 `s` 输出中字段 `F` 的不同取值个数。
+- 如果 `s` 是表扫描，那么这些函数等价于该表的统计元数据；否则，每个操作符都有一个公式，根据其输入扫描的函数值计算输出函数值。
+- 一个 SQL 查询可能有多个等价的查询树，每棵树对应不同的扫描。数据库规划器负责创建估算成本最低的扫描。为此，规划器可能需要构造多个查询树并比较它们的成本，最终只为成本最低的树创建扫描。
+- 为比较成本而构建的查询树称为计划（plan）。计划与扫描在概念上类似，都表示查询树，不同之处在于计划具有估算成本的方法；它访问数据库元数据，但不访问实际数据。创建计划不产生磁盘访问。规划器会创建多个计划并比较成本，然后选择成本最低的计划并打开执行。
+- 规划器是数据库引擎中将 SQL 语句转换为执行计划的组件。
+- 此外，规划器会验证语句的语义是否有效，包括：
+  - 指定的表和字段在目录中确实存在
+  - 指定字段不歧义
+  - 对字段的操作类型正确
+  - 所有常量的类型和大小与字段匹配
+- 基本查询规划算法创建一个初步的执行计划，步骤如下：
+  1. 为 `from` 子句中的每个表 `T` 构建计划
+     - 如果 `T` 是存储表，则计划为该表的表计划
+     - 如果 `T` 是视图，则递归调用此算法生成 `T` 的定义计划
+  2. 按 `from` 子句顺序对表取笛卡尔积
+  3. 对 `where` 子句中的谓词进行选择（select）
+  4. 对 `select` 子句中的字段进行投影（project）
+- 基本查询规划算法生成的计划是简单且通常低效的。商业数据库系统中的规划算法会对各种等价计划进行深入分析，第 15 章将详细描述。
+- 删除（delete）和修改（modify）语句处理方式相似。规划器会创建选择计划（select plan），检索要删除或修改的记录。`executeDelete` 和 `executeModify` 方法会打开计划，迭代扫描，对每条记录执行相应操作。修改语句会修改记录，删除语句会删除记录。
+- 插入语句（insert）的计划是底层表的表计划。`executeInsert` 方法打开计划并向扫描中插入新记录。
+- 创建语句（create table/view/index）的计划不需要访问数据，因此无需创建计划。相应的方法直接调用元数据方法执行创建操作。
+
+### 10.8 推荐阅读（Suggested Reading）
+
+本章的规划器只理解 SQL 的一小部分，对于复杂构造的规划问题只做了简要介绍：
+
+- Kim (1982) 描述了嵌套查询的问题，并提出解决方案
+- Chaudhuri (1998) 讨论了 SQL 中外连接（outer join）和嵌套查询等复杂问题的优化策略
+
+参考文献：
+
+- Chaudhuri, S. (1998). *An overview of query optimization in relational systems*. Proceedings of the ACM Principles of Database Systems Conference, pp. 34–43.
+- Kim, W. (1982). *On optimizing an SQL-like nested query*. ACM Transactions on Database Systems, 7(3), 443–469.
+
+### 10.9 练习（Exercises）
+
+#### 概念练习（Conceptual Exercises）
+
+**10.1** 考虑如下关系代数查询：
+
+```
+T1 = select(DEPT, DName='math')
+T2 = select(STUDENT, GradYear=2018)
+product(T1, T2)
+```
+
+根据第 10.2 节的假设：
+(a) 计算执行该操作所需的磁盘访问数
+(b) 如果交换 `product` 的参数，计算所需的磁盘访问数
+
+**10.2** 计算图 10.11 和 10.12 的查询的 `B(s)`、`R(s)` 和 `V(s,F)`
+
+**10.3** 证明如果交换第 10.2.5 节中 `product` 操作的参数，则整个操作需要 4502 块访问
+
+**10.4** 第 10.2.4 节指出，当 STUDENT 为外层扫描时，STUDENT × DEPT 的笛卡尔积更高效。利用图 7.8 的统计信息，计算所需的块访问数
+
+**10.5** 对以下 SQL 语句，画出本章基本规划器生成的计划图
+(a)
+
+```sql
+select SName, Grade
+from STUDENT, COURSE, ENROLL, SECTION
+where SId = StudentId and SectId = SectionId and CourseId = CId and Title = 'Calculus'
+```
+
+(b)
+
+```sql
+select SName
+from STUDENT, ENROLL
+where MajorId = 10 and SId = StudentId and Grade = 'C'
+```
+
+**10.6** 对练习 10.5 的查询，说明规划器必须检查哪些内容以验证正确性
+
+**10.7** 对以下更新语句，说明规划器必须检查哪些内容以验证正确性
+(a)
+
+```sql
+insert into STUDENT(SId, SName, GradYear, MajorId)
+values(120, 'abigail', 2012, 30)
+```
+
+(b)
+
+```sql
+delete from STUDENT
+where MajorId = 10 and SID in (
+  select StudentId from ENROLL where Grade = 'F'
+)
+```
+
+(c)
+
+```sql
+update STUDENT
+set GradYear = GradYear + 3
+where MajorId in (
+  select DId from DEPT where DName = 'drama'
+)
+```
+
+#### 编程练习（Programming Exercises）
+
+**10.8** SimpleDB 规划器未验证表名是否存在
+(a) 查询中提及不存在表会发生什么问题？
+(b) 修改 `Planner` 类验证表名，不存在时抛出 `BadSyntaxException`
+
+**10.9** SimpleDB 规划器未验证字段名存在且唯一
+(a) 查询中提及不存在字段会发生什么问题？
+(b) 查询中涉及具有相同字段名的表会发生什么问题？
+(c) 修改代码进行适当验证
+
+**10.10** SimpleDB 规划器未进行谓词类型检查
+(a) 谓词类型不正确会导致什么问题？
+(b) 修改代码进行类型验证
+
+**10.11** SimpleDB 更新规划器未验证插入语句中字符串常量的类型、大小以及常量列表与字段列表长度
+**10.12** SimpleDB 更新规划器未验证修改语句中赋值的类型正确性
+
+**10.13–10.22** 包含一系列高级练习：
+
+- 实现重命名（RenamePlan）、扩展（ExtendPlan）、并集（UnionPlan）、半连接/反连接（SemijoinPlan/AntijoinPlan）等计划对象
+- 修改基本查询规划器以支持这些新计划
+- 修改解析器以支持 `AS`、`UNION`、嵌套查询和 `*`
+- 修改插入/更新规划器以支持视图、优化插入位置等
+- 通过 JDBC 编写客户端程序测试这些功能
+- 修改 SimpleDB 服务器以打印查询及其计划，帮助理解查询执行过程
+
