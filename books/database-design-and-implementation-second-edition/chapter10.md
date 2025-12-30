@@ -635,3 +635,123 @@ public class BetterQueryPlanner implements QueryPlanner {
 ```
 
 这个算法比基本的规划算法更好，但它仍然过于依赖查询中表的顺序。商业数据库系统中的规划算法要复杂得多。它们不仅分析许多等效计划的成本；它们还在特殊情况下实现可以应用的附加关系操作。它们的目标是选择最有效的计划（从而比竞争对手更具吸引力）。这些技术是第 12、13、14 和 15 章的主题。
+
+### 10.5 更新规划（Update Planning）
+
+本节讨论规划器应如何处理更新语句。SimpleDB 类 `BasicUpdatePlanner` 提供了一个简单的更新规划器实现；其代码如图 10.15 所示。该类为每种类型的更新操作提供了一个方法，以下小节将对这些方法进行详细说明。
+
+```java
+public class BetterQueryPlanner implements QueryPlanner {... 
+public Plan createPlan(QueryData data, Transaction tx) {
+    // 第 2 步：创建所有表计划的笛卡尔积
+    // 每一步选择访问成本最小的计划
+    Plan p = plans.remove(0);
+    for (Plan nextplan : plans) {
+        Plan p1 = new ProductPlan(nextplan, p);
+        Plan p2 = new ProductPlan(p, nextplan);
+        p = (p1.blocksAccessed() < p2.blocksAccessed() ? p1 : p2);
+    }
+    ...
+}}
+```
+
+图 10.14 SimpleDB 类 `BetterQueryPlanner` 的代码
+
+#### 10.5.1 删除与修改规划（Delete and Modify Planning）
+
+删除（或修改）语句的扫描是一个选择扫描（select scan），用于检索需要删除或修改的记录。例如，考虑以下修改语句：
+
+```sql
+update STUDENT
+set MajorId = 20
+where MajorId = 30 and GradYear = 2020
+```
+
+以及下面的删除语句：
+
+```sql
+delete from STUDENT
+where MajorId = 30 and GradYear = 2020
+```
+
+这些语句使用相同的扫描，即检索所有 2020 年毕业且专业编号为 30 的学生。方法 `executeDelete` 和 `executeModify` 都会创建并迭代这个扫描，对每条记录执行相应操作。在修改语句中，每条记录都会被修改；在删除语句中，每条记录都会被删除。
+
+查看代码可以发现，这两个方法创建的计划相同，类似于查询规划器创建的计划（查询规划器还会增加一个投影计划）。两个方法都会打开扫描并以相同的方式迭代它。`executeDelete` 方法对扫描中的每条记录调用 `delete`，而 `executeModify` 方法则对每条记录的目标字段调用 `setVal`。两个方法都维护一个受影响记录的计数，并返回给调用者。
+
+```java
+public class BasicUpdatePlanner implements UpdatePlanner {
+    private MetadataMgr mdm;
+    
+    public BasicUpdatePlanner(MetadataMgr mdm) {
+        this.mdm = mdm;
+    }
+
+    public int executeDelete(DeleteData data, Transaction tx) {
+        Plan p = new TablePlan(data.tableName(), tx, mdm);
+        p = new SelectPlan(p, data.pred());
+        UpdateScan us = (UpdateScan) p.open();
+        int count = 0;
+        while(us.next()) {
+            us.delete();
+            count++;
+        }
+        us.close();
+        return count;
+    }
+
+    public int executeModify(ModifyData data, Transaction tx) {
+        Plan p = new TablePlan(data.tableName(), tx, mdm);
+        p = new SelectPlan(p, data.pred());
+        UpdateScan us = (UpdateScan) p.open();
+        int count = 0;
+        while(us.next()) {
+            Constant val = data.newValue().evaluate(us);
+            us.setVal(data.targetField(), val);
+            count++;
+        }
+        us.close();
+        return count;
+    }
+
+    public int executeInsert(InsertData data, Transaction tx) {
+        Plan p = new TablePlan(data.tableName(), tx, mdm);
+        UpdateScan us = (UpdateScan) p.open();
+        us.insert();
+        Iterator<Constant> iter = data.vals().iterator();
+        for (String fldname : data.fields()) {
+            Constant val = iter.next();
+            us.setVal(fldname, val);
+        }
+        us.close();
+        return 1;
+    }
+
+    public int executeCreateTable(CreateTableData data, Transaction tx) {
+        mdm.createTable(data.tableName(), data.newSchema(), tx);
+        return 0;
+    }
+
+    public int executeCreateView(CreateViewData data, Transaction tx) {
+        mdm.createView(data.viewName(), data.viewDef(), tx);
+        return 0;
+    }
+
+    public int executeCreateIndex(CreateIndexData data, Transaction tx) {
+        mdm.createIndex(data.indexName(), data.tableName(), data.fieldName(), tx);
+        return 0;
+    }
+}
+```
+
+图 10.15 SimpleDB 类 `BasicUpdatePlanner` 的代码
+
+#### 10.5.2 插入规划（Insert Planning）
+
+插入语句对应的扫描只是对底层表的一个表扫描。`executeInsert` 方法首先在扫描中插入一条新记录，然后并行迭代 `fields` 和 `vals` 列表，调用 `setInt` 或 `setString` 修改记录中每个指定字段的值。
+
+该方法返回 1，表示插入了一条记录。
+
+#### 10.5.3 表、视图和索引创建规划（Planning for Table, View, and Index Creation）
+
+方法 `executeCreateTable`、`executeCreateView` 和 `executeCreateIndex` 与其他方法不同，因为它们不需要访问任何数据记录，因此不需要扫描。它们仅调用元数据管理器的方法 `createTable`、`createView` 和 `createIndex`，使用解析器提供的相关信息，并返回 0 表示没有记录受到影响。
+
