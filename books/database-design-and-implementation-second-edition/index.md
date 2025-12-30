@@ -126,12 +126,12 @@ typora-root-url: ./..\..\static
     - [10.1 验证（Verification）](chapter10#101-验证-verification)
     - [10.2 查询树评估成本（The Cost of Evaluating a Query Tree）](chapter10#102-评估查询树的成本-the-cost-of-evaluating-a-query-tree)
     - [10.3 执行计划（Plans）](chapter10#103-计划-plans)
-    - [10.4 查询规划（Query Planning）](chapter10#104-查询计划-query-planning)
-    - 10.5 更新规划（Update Planning）
-    - 10.6 SimpleDB 规划器（The SimpleDB Planner）
-    - 10.7 本章小结（Chapter Summary）
-    - 10.8 建议阅读（Suggested Reading）
-    - 10.9 习题（Exercises）
+    - [10.4 查询计划（Query Planning）](chapter10#104-查询计划-query-planning)
+    - [10.5 更新计划（Update Planning）](chapter10#105-更新规划update-planning)
+    - [10.6 SimpleDB 规划器（The SimpleDB Planner）](chapter10#106-simpledb-的规划器the-simpledb-planner)
+    - [10.7 本章小结（Chapter Summary）](chapter10#107-本章小结chapter-summary)
+    - [10.8 建议阅读（Suggested Reading）](chapter10#108-推荐阅读suggested-reading)
+    - [10.9 习题（Exercises）](chapter10#109-练习exercises)
 
 12. ### [第 11 章：JDBC 接口（JDBC Interfaces）](chapter11.md#第-11-章-jdbc-接口-jdbc-interfaces)
 

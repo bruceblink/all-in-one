@@ -636,7 +636,7 @@ public class BetterQueryPlanner implements QueryPlanner {
 
 这个算法比基本的规划算法更好，但它仍然过于依赖查询中表的顺序。商业数据库系统中的规划算法要复杂得多。它们不仅分析许多等效计划的成本；它们还在特殊情况下实现可以应用的附加关系操作。它们的目标是选择最有效的计划（从而比竞争对手更具吸引力）。这些技术是第 12、13、14 和 15 章的主题。
 
-### 10.5 更新规划（Update Planning）
+## 10.5 更新规划（Update Planning）
 
 本节讨论规划器应如何处理更新语句。SimpleDB 类 `BasicUpdatePlanner` 提供了一个简单的更新规划器实现；其代码如图 10.15 所示。该类为每种类型的更新操作提供了一个方法，以下小节将对这些方法进行详细说明。
 
@@ -755,7 +755,7 @@ public class BasicUpdatePlanner implements UpdatePlanner {
 
 方法 `executeCreateTable`、`executeCreateView` 和 `executeCreateIndex` 与其他方法不同，因为它们不需要访问任何数据记录，因此不需要扫描。它们仅调用元数据管理器的方法 `createTable`、`createView` 和 `createIndex`，使用解析器提供的相关信息，并返回 0 表示没有记录受到影响。
 
-### 10.6 SimpleDB 的规划器（The SimpleDB Planner）
+## 10.6 SimpleDB 的规划器（The SimpleDB Planner）
 
 规划器是数据库引擎的一个组件，用于将 SQL 语句转换为执行计划。SimpleDB 的规划器由 `Planner` 类实现，其 API 如图 10.16 所示。
 
@@ -894,7 +894,7 @@ public SimpleDB(String dirname) {
 
 图 10.21 SimpleDB 创建其规划器的代码
 
-### 10.7 本章小结（Chapter Summary）
+## 10.7 本章小结（Chapter Summary）
 
 - 为了构造给定查询的最优成本扫描，数据库系统需要估算遍历一个扫描所需的块访问数。对于扫描 `s`，定义了以下估算函数：
   - `B(s)` 表示遍历扫描 `s` 所需的块访问数。
@@ -921,7 +921,7 @@ public SimpleDB(String dirname) {
 - 插入语句（insert）的计划是底层表的表计划。`executeInsert` 方法打开计划并向扫描中插入新记录。
 - 创建语句（create table/view/index）的计划不需要访问数据，因此无需创建计划。相应的方法直接调用元数据方法执行创建操作。
 
-### 10.8 推荐阅读（Suggested Reading）
+## 10.8 推荐阅读（Suggested Reading）
 
 本章的规划器只理解 SQL 的一小部分，对于复杂构造的规划问题只做了简要介绍：
 
@@ -933,7 +933,7 @@ public SimpleDB(String dirname) {
 - Chaudhuri, S. (1998). *An overview of query optimization in relational systems*. Proceedings of the ACM Principles of Database Systems Conference, pp. 34–43.
 - Kim, W. (1982). *On optimizing an SQL-like nested query*. ACM Transactions on Database Systems, 7(3), 443–469.
 
-### 10.9 练习（Exercises）
+## 10.9 练习（Exercises）
 
 #### 概念练习（Conceptual Exercises）
 
