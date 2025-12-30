@@ -3,7 +3,7 @@ sidebar_position: 4
 typora-root-url: ./..\..\static
 ---
 
-# 第 1 章 Rust 并发基础
+# 第 1 章 Rust 并发基础（Basics of Rust Concurrency）
 
 早在多核处理器尚未普及之前，操作系统就已经允许一台计算机同时运行多个程序。这是通过在进程之间快速切换来实现的，使每个进程依次获得一点点执行进度。如今，几乎所有的计算机，甚至手机和手表，都配备了多核处理器，能够真正地并行执行多个进程。
 
@@ -730,7 +730,7 @@ fn main() {
 >
 >  ```rust
 >  if let Some(item) = list.lock().unwrap().pop() {
->  process_item(item);
+>      process_item(item);
 >  }
 >  ```
 >
@@ -742,7 +742,7 @@ fn main() {
 >
 >  ```rust
 >  if list.lock().unwrap().pop() == Some(1) {
->  do_something();
+>      do_something();
 >  }
 >  ```
 >
@@ -754,7 +754,7 @@ fn main() {
 >  ```rust
 >  let item = list.lock().unwrap().pop();
 >  if let Some(item) = item {
->  process_item(item);
+>      process_item(item);
 >  }
 >  ```
 
