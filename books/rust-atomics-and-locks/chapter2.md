@@ -215,7 +215,7 @@ assert_eq!(c, 123);
 
 需要记住的重要一点是，`fetch_add` 和 `fetch_sub` 实现了溢出时的环绕行为。将值递增超过最大可表示值时，会环绕回最小可表示值。这与常规整数的加减运算符行为不同，后者在调试模式下会在溢出时发生恐慌（panic）。
 
-在["比较并交换操作"]()中，我们将看到如何进行带有溢出检查的原子加法。
+在["比较并交换操作"](chapter2#比较并交换操作-compare-and-exchange-operations)中，我们将看到如何进行带有溢出检查的原子加法。
 
 但首先，让我们看看这些方法的一些实际用例。
 
@@ -454,15 +454,15 @@ fn allocate_new_id() -> u32 {
 ```
 现在，我们在修改 `NEXT_ID` 之前进行检查和恐慌，保证它永远不会递增超过 1000，从而不可能溢出。如果我们愿意，现在可以将上限从 1000 提高到 `u32::MAX`，而不必担心可能超过限制的边缘情况。
 
-#### 获取更新 Fetch-Update
-
+>获取更新 Fetch-Update
+>
 原子类型有一个方便的方法叫做 `fetch_update`，用于处理比较并交换循环模式。它等同于一个加载操作，然后是一个重复计算和 `compare_exchange_weak` 的循环，就像我们上面做的那样。使用它，我们可以用一行代码实现我们的 `allocate_new_id` 函数：
-```rust
-NEXT_ID.fetch_update(Relaxed, Relaxed, |n| n.checked_add(1)).expect("too many IDs!")
-```
+>```rust
+>NEXT_ID.fetch_update(Relaxed, Relaxed, |n| >n.checked_add(1)).expect("too many IDs!")
+>```
 请查看该方法的文档以获取详细信息。
-
-我们不会在本书中使用 `fetch_update` 方法，以便专注于单个原子操作。
+>
+>我们不会在本书中使用 `fetch_update` 方法，以便专注于单个原子操作。
 
 ### 示例：惰性一次性初始化 （Example: Lazy One-Time Initialization）
 
