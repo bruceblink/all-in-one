@@ -372,3 +372,142 @@ fn allocate_new_id() -> u32 {
 这就是标准库 `thread::scope` 实现中处理运行线程数溢出的方式。
 
 第三种处理溢出的方法可以说是唯一真正正确的方法，因为它可以防止在会发生溢出时进行加法操作。然而，我们无法用目前见过的原子操作来实现这一点。为此，我们将需要比较并交换（compare-and-exchange ）操作，我们将在接下来探讨。
+
+## 比较并交换操作 （Compare-and-Exchange Operations）
+
+最先进且灵活的原子操作是比较并交换操作。该操作检查原子值是否等于给定值，只有在这种情况下，才会用新值替换它，所有操作原子性地作为单个操作完成。它将返回先前的值，并告诉我们是否替换了它。
+
+其函数签名比我们目前看到的要复杂一些。以 `AtomicI32` 为例，它看起来像这样：
+```rust
+impl AtomicI32 {
+    pub fn compare_exchange(
+        &self,
+        expected: i32,
+        new: i32,
+        success_order: Ordering,
+        failure_order: Ordering
+    ) -> Result<i32, i32>;
+}
+```
+暂时忽略内存排序，它基本上等同于以下实现，只不过它是作为一个单一的、不可分割的原子操作发生的：
+```rust
+impl AtomicI32 {
+    pub fn compare_exchange(&self, expected: i32, new: i32) -> Result<i32, i32> {
+        // 实际上，加载、比较和存储都是作为一个原子操作发生的。
+        let v = self.load();
+        if v == expected {
+            // 值符合预期。
+            // 替换它并报告成功。
+            self.store(new);
+            Ok(v)
+        } else {
+            // 值不符合预期。
+            // 保持原样并报告失败。
+            Err(v)
+        }
+    }
+}
+```
+使用这个操作，我们可以从原子变量加载一个值，执行我们喜欢的任何计算，然后只有当原子变量在此期间没有改变时，才存储新计算的值。如果我们把它放在一个循环中，以便在它确实改变时重试，我们可以用这个操作来实现所有其他原子操作，使其成为最通用的操作。
+
+为了演示，让我们在不使用 `fetch_add` 的情况下，将 `AtomicU32` 递增1，只是为了看看如何在实践中使用 `compare_exchange`：
+```rust
+fn increment(a: &AtomicU32) {
+    let mut current = a.load(Relaxed); // 1
+    loop {
+        let new = current + 1; // 2
+        match a.compare_exchange(current, new, Relaxed, Relaxed) { // 3
+            Ok(_) => return, // 4
+            Err(v) => current = v, // 5
+        }
+    }
+}
+```
+1. 首先，我们加载 `a` 的当前值。
+
+2. 我们计算想要存储在 `a` 中的新值，而不考虑其他线程可能同时修改 `a`。
+3. 我们使用 `compare_exchange` 来更新 `a` 的值，但前提是它的值仍然是我们之前加载的值。
+4. 如果 `a` 确实和之前一样，那么它现在被我们的新值替换，我们就完成了。
+5. 如果 `a` 和之前不一样，那么另一个线程一定在我们加载它之后的短暂瞬间改变了它。`compare_exchange` 操作给出了 `a` 改变后的值，我们将使用该值再次尝试。加载和更新之间的短暂瞬间非常短，以至于循环不太可能超过几次迭代。
+
+> 如果原子变量在加载操作之后，但在 `compare_exchange` 操作之前，从某个值 A 变为 B，然后又变回 A，那么操作仍然会成功，即使原子变量在此期间发生了变化（并且又变了回来）。在许多情况下，就像我们的递增示例一样，这不是问题。然而，某些算法，通常涉及原子指针，可能会因此出现问题。这被称为 ABA 问题。
+
+除了 `compare_exchange`，还有一个类似的方法叫做 `compare_exchange_weak`。区别在于，弱版本有时即使原子值与期望值匹配，也可能保持值不变并返回 `Err`。在某些平台上，这种方法可以实现得更高效，并且在虚假的比较并交换失败后果不严重的情况下，应该优先使用它，例如我们上面的递增函数。在第七章中，我们将深入底层细节，以了解为什么弱版本可能更高效。
+
+### 示例：无溢出的 ID 分配 （Example: ID Allocation Without Overflow）
+
+现在，回到我们["示例：ID 分配"](chapter2#示例id-分配-example-id-allocation)中 `allocate_new_id()` 的溢出问题。
+
+为了防止溢出，我们可以使用 `compare_exchange` 来实现带有上限的原子加法。基于这个想法，让我们制作一个始终正确处理溢出的 `allocate_new_id` 版本，即使在几乎不可能的情况下：
+```rust
+fn allocate_new_id() -> u32 {
+    static NEXT_ID: AtomicU32 = AtomicU32::new(0);
+    let mut id = NEXT_ID.load(Relaxed);
+    loop {
+        assert!(id < 1000, "too many IDs!");
+        match NEXT_ID.compare_exchange_weak(id, id + 1, Relaxed, Relaxed) {
+            Ok(_) => return id,
+            Err(v) => id = v,
+        }
+    }
+}
+```
+现在，我们在修改 `NEXT_ID` 之前进行检查和恐慌，保证它永远不会递增超过 1000，从而不可能溢出。如果我们愿意，现在可以将上限从 1000 提高到 `u32::MAX`，而不必担心可能超过限制的边缘情况。
+
+#### 获取更新 Fetch-Update
+
+原子类型有一个方便的方法叫做 `fetch_update`，用于处理比较并交换循环模式。它等同于一个加载操作，然后是一个重复计算和 `compare_exchange_weak` 的循环，就像我们上面做的那样。使用它，我们可以用一行代码实现我们的 `allocate_new_id` 函数：
+```rust
+NEXT_ID.fetch_update(Relaxed, Relaxed, |n| n.checked_add(1)).expect("too many IDs!")
+```
+请查看该方法的文档以获取详细信息。
+
+我们不会在本书中使用 `fetch_update` 方法，以便专注于单个原子操作。
+
+### 示例：惰性一次性初始化 （Example: Lazy One-Time Initialization）
+
+在["示例：惰性初始化"](chapter2#示例惰性初始化example-lazy-initialization)中，我们看了一个常量值惰性初始化的例子。我们创建了一个函数，在第一次调用时惰性地初始化一个值，但在后续调用中重用该值。当多个线程在第一次调用期间并发运行该函数时，可能有多个线程执行初始化，它们将以不可预测的顺序覆盖彼此的结果。
+
+对于我们期望为常量的值，或者当我们不关心值的变化时，这是可以的。然而，也有一些用例，其中这样的值每次都会初始化为不同的值，即使我们需要在程序的单次运行中，该函数的每次调用都返回相同的值。
+
+例如，想象一个函数 `get_key()`，它返回一个随机生成的密钥，该密钥仅在程序每次运行时生成一次。它可能是用于与程序通信的加密密钥，每次程序运行时都需要是唯一的，但在进程内保持不变。
+
+这意味着我们不能在生成密钥后简单地使用存储操作，因为这可能会覆盖另一个线程刚刚生成的密钥，导致两个线程使用不同的密钥。相反，我们可以使用 `compare_exchange` 来确保只有在没有其他线程已经存储密钥时才存储我们的密钥，否则丢弃我们的密钥并使用已存储的密钥。
+
+以下是这个想法的实现：
+```rust
+fn get_key() -> u64 {
+    static KEY: AtomicU64 = AtomicU64::new(0);
+    let key = KEY.load(Relaxed);
+    if key == 0 {
+        let new_key = generate_random_key();
+        match KEY.compare_exchange(0, new_key, Relaxed, Relaxed) {
+            Ok(_) => new_key,
+            Err(k) => k,
+        }
+    } else {
+        key
+    }
+}
+```
+如果 `KEY` 尚未初始化，我们才生成一个新密钥。
+我们仅当 `KEY` 仍为零时，才将其替换为我们新生成的密钥。
+如果我们成功将零替换为新密钥，则返回我们新生成的密钥。新调用 `get_key()` 将返回现在存储在 `KEY` 中的相同新密钥。
+如果我们输给了另一个在我们之前初始化了 `KEY` 的线程，我们将忘记我们新生成的密钥，转而使用 `KEY` 中的密钥。
+
+这是一个很好的例子，说明在这种情况下 `compare_exchange` 比其弱变体更合适。我们没有在循环中运行比较并交换操作，并且我们不希望操作虚假失败时返回零。
+
+如["示例：惰性初始化"](chapter2#示例惰性初始化example-lazy-initialization)中所述，如果 `generate_random_key()` 花费大量时间，那么在初始化期间阻塞线程可能更有意义，以避免可能花费时间生成不会被使用的密钥。Rust 标准库通过 `std::sync::Once` 和 `std::sync::OnceLock` 提供了这样的功能。
+
+## 总结 （Summary）
+
+- 原子操作是不可分割的；它们要么完全完成，要么尚未发生。
+- Rust 中的原子操作通过 `std::sync::atomic` 中的原子类型完成，例如 `AtomicI32`。
+- 并非所有原子类型在所有平台上都可用。
+- 当涉及多个变量时，原子操作的相对顺序是棘手的。更多内容见第 3 章。
+- 简单的加载和存储适用于非常基本的线程间通信，如停止标志和状态报告。
+- 惰性初始化可以作为竞争完成，而不会导致数据竞争。
+- 取改操作允许一小部分基本的原子修改，当多个线程修改同一个原子变量时特别有用。
+- 原子加法和减法在溢出时静默环绕。
+- 比较并交换操作是最灵活和通用的，是构建任何其他原子操作的基石。
+- 弱比较并交换操作可能稍微更高效。
