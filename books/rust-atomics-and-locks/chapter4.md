@@ -63,3 +63,83 @@ impl SpinLock {
 
 **图4-1. 两个线程使用我们的 `SpinLock` 保护对某些共享数据的访问时，它们之间的“发生在之前”关系**
 
+## **一个不安全的自旋锁**（An Unsafe Spin Lock）
+
+我们上面的 `SpinLock` 类型有一个完全安全的接口，因为就其本身而言，即使被误用也不会导致任何未定义行为。然而，在大多数使用情况下，它将被用来保护对共享变量的修改，这意味着用户仍然必须使用不安全、未经检查的代码。
+
+为了提供更简单的接口，我们可以更改 `lock` 方法，使其返回一个对锁保护数据的独占引用（`&mut T`），因为在大多数使用情况下，正是锁定操作保证了可以安全地假设独占访问。
+
+为了能够做到这一点，我们必须更改类型，使其对保护的数据类型泛型化，并添加一个字段来保存该数据。由于自旋锁本身是共享的，但数据可以被修改（或独占访问），我们需要使用内部可变性（参见[“内部可变性”](chapter1#内部可变性interior-mutability)），为此我们将使用 `UnsafeCell`：
+
+```rust
+use std::cell::UnsafeCell;
+
+pub struct SpinLock<T> {
+    locked: AtomicBool,
+    value: UnsafeCell<T>,
+}
+```
+
+作为一种预防措施，`UnsafeCell` 没有实现 `Sync`，这意味着我们的类型现在不能再在线程间共享，这使其相当无用。为了解决这个问题，我们需要向编译器承诺，我们的类型实际上在线程间共享是安全的。然而，由于锁可用于将类型为 `T` 的值从一个线程发送到另一个线程，我们必须将此承诺限制为在线程间安全发送的类型。因此，我们（不安全地）为所有实现了 `Send` 的 `T` 实现 `SpinLock<T>` 的 `Sync`，像这样：
+
+```rust
+unsafe impl<T> Sync for SpinLock<T> where T: Send {}
+```
+
+注意，我们不需要要求 `T` 是 `Sync`，因为我们的 `SpinLock<T>` 一次只允许一个线程访问它保护的 `T`。只有当我们允许多个线程同时访问时，比如读写锁对读者所做的那样，我们（另外）才需要要求 `T: Sync`。
+
+接下来，我们的 `new` 函数现在需要接受一个类型为 `T` 的值来初始化 `UnsafeCell`：
+
+```rust
+impl<T> SpinLock<T> {
+    pub const fn new(value: T) -> Self {
+        Self {
+            locked: AtomicBool::new(false),
+            value: UnsafeCell::new(value),
+        }
+    }
+    // ...
+}
+```
+
+然后我们到了有趣的部分：`lock` 和 `unlock`。我们做这一切的原因是为了能够从 `lock()` 返回一个 `&mut T`，这样用户在使用我们的锁保护他们的数据时就不需要编写不安全的、未经检查的代码。这意味着我们现在必须在 `lock` 的实现中使用不安全代码。`UnsafeCell` 可以通过其 `get()` 方法给我们一个指向其内容的原始指针（`*mut T`），我们可以在不安全块中将其转换为引用，如下所示：
+
+```rust
+pub fn lock(&self) -> &mut T {
+    while self.locked.swap(true, Acquire) {
+        std::hint::spin_loop();
+    }
+    unsafe { &mut *self.value.get() }
+}
+```
+
+由于 `lock` 的函数签名在其输入和输出中都包含引用，`&self` 和 `&mut T` 的生命周期已被省略并假定为相同。（参见Rust书第10章“泛型类型、特性和生命周期”中的“生命周期省略”。）我们可以通过手动写出生命周期来使其明确，像这样：
+
+```rust
+pub fn lock<'a>(&'a self) -> &'a mut T { ... }
+```
+
+这清楚地表明返回引用的生命周期与 `&self` 的生命周期相同。这意味着我们声称返回的引用只要锁本身存在就有效。
+
+如果我们假装 `unlock()` 不存在，这将是一个完美安全且合理的接口。`SpinLock` 可以被锁定，得到一个 `&mut T`，然后永远不会再被锁定，这保证了独占引用确实是独占的。
+
+然而，如果我们尝试将 `unlock()` 方法加回来，我们需要一种方法来限制返回引用的生命周期，直到下一次调用 `unlock()`。如果编译器能理解英语，也许这样是可行的：
+
+```rust
+pub fn lock<'a>(&self) -> &'a mut T where
+    'a 在下次对 self 调用 unlock() 时结束，
+    即使该调用是由另一个线程执行的。
+    哦，当然，当 self 被丢弃时它也会结束。
+    （谢谢！）
+{ ... }
+```
+
+不幸的是，这不是有效的Rust。我们无法向编译器解释这个限制，只能向用户解释。为了将责任转移给用户，我们将 `unlock` 函数标记为不安全，并留下注释说明他们需要做什么来保持安全性：
+
+```rust
+/// 安全性：来自 lock() 的 &mut T 必须已经消失！
+/// （不要作弊，比如保留对那个 T 的字段的引用！）
+pub unsafe fn unlock(&self) {
+    self.locked.store(false, Release);
+}
+```
