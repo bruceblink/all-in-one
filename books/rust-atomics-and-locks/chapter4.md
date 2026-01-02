@@ -143,3 +143,140 @@ pub unsafe fn unlock(&self) {
     self.locked.store(false, Release);
 }
 ```
+
+## **使用锁守卫的安全接口**（A Safe Interface Using a Lock Guard）
+
+为了提供一个完全安全的接口，我们需要将解锁操作与 `&mut T` 的结束绑定。我们可以通过将这个引用包装在我们自己的类型中来实现，这个类型表现得像引用，但也实现了 `Drop` 特性，以便在丢弃时执行某些操作。
+
+这种类型通常被称为守卫，因为它有效地保护着锁的状态，并负责该状态直到被丢弃。
+
+我们的 `Guard` 类型将简单地包含一个对 `SpinLock` 的引用，这样它既可以访问其 `UnsafeCell`，又可以在之后重置 `AtomicBool`：
+
+```rust
+pub struct Guard<T> {
+    lock: &SpinLock<T>,
+}
+```
+
+然而，如果我们尝试编译这个，编译器会告诉我们：
+
+```
+error[E0106]: missing lifetime specifier
+--> src/lib.rs
+|
+|     lock: &SpinLock<T>,
+|           ^ expected named lifetime parameter
+|
+help: consider introducing a named lifetime parameter
+|
+| pub struct Guard<'a, T> {
+|               ^^^
+|     lock: &'a SpinLock<T>,
+|           ^^
+```
+
+显然，这不是可以省略生命周期的地方。我们必须明确指出引用有有限的生命周期，正如编译器建议的那样：
+
+```rust
+pub struct Guard<'a, T> {
+    lock: &'a SpinLock<T>,
+}
+```
+
+这保证了 `Guard` 不会比 `SpinLock` 存活得更久。
+
+接下来，我们更改 `SpinLock` 上的 `lock` 方法以返回一个 `Guard`：
+
+```rust
+pub fn lock(&self) -> Guard<T> {
+    while self.locked.swap(true, Acquire) {
+        std::hint::spin_loop();
+    }
+    Guard { lock: self }
+}
+```
+
+我们的 `Guard` 类型没有构造函数且其字段是私有的，因此这是用户获得 `Guard` 的唯一方式。因此，我们可以安全地假设 `Guard` 的存在意味着 `SpinLock` 已被锁定。
+
+为了使 `Guard<T>` 表现得像一个（独占）引用，透明地提供对 `T` 的访问，我们必须如下实现特殊的 `Deref` 和 `DerefMut` 特性：
+
+```rust
+use std::ops::{Deref, DerefMut};
+
+impl<T> Deref for Guard<'_, T> {
+    type Target = T;
+    
+    fn deref(&self) -> &T {
+        // 安全性：此 Guard 的存在本身
+        // 就保证我们已经独占地锁定了锁。
+        unsafe { &*self.lock.value.get() }
+    }
+}
+
+impl<T> DerefMut for Guard<'_, T> {
+    fn deref_mut(&mut self) -> &mut T {
+        // 安全性：此 Guard 的存在本身
+        // 就保证我们已经独占地锁定了锁。
+        unsafe { &mut *self.lock.value.get() }
+    }
+}
+```
+
+作为最后一步，我们为 `Guard` 实现 `Drop`，从而可以完全移除不安全的 `unlock` 方法：
+
+```rust
+impl<T> Drop for Guard<'_, T> {
+    fn drop(&mut self) {
+        self.lock.locked.store(false, Release);
+    }
+}
+```
+
+就这样，通过 `Drop` 和 Rust 类型系统的魔法，我们为 `SpinLock` 类型提供了一个完全安全（且有用）的接口。
+
+让我们试试看：
+
+```rust
+fn main() {
+    let x = SpinLock::new(Vec::new());
+    thread::scope(|s| {
+        s.spawn(|| x.lock().push(1));
+        s.spawn(|| {
+            let mut g = x.lock();
+            g.push(2);
+            g.push(2);
+        });
+    });
+    let g = x.lock();
+    assert!(g.as_slice() == [1, 2, 2] || g.as_slice() == [2, 2, 1]);
+}
+```
+
+上面的程序展示了我们的 `SpinLock` 是多么容易使用。得益于 `Deref` 和 `DerefMut`，我们可以直接在守卫上调用 `Vec::push` 方法。而得益于 `Drop`，我们不需要担心解锁。
+
+通过调用 `drop(g)` 来丢弃守卫也可以显式解锁。如果你尝试过早解锁，你会通过编译器错误看到守卫在起作用。例如，如果你在两个 `push(2)` 行之间插入 `drop(g);`，第二个 `push` 将无法编译，因为此时你已经丢弃了 `g`：
+
+```
+error[E0382]: borrow of moved value: `g`
+--> src/lib.rs
+|
+|     drop(g);
+|          - value moved here
+|     g.push(2);
+|     ^^^^^^^^^ value borrowed here after move
+```
+
+得益于 Rust 的类型系统，我们可以放心，这样的错误在运行程序之前就会被捕获。
+
+## **总结**（Summary）
+
+- 自旋锁是一种在等待时忙循环或自旋的互斥锁。
+- 自旋可以减少延迟，但也可能浪费时钟周期并降低性能。
+- 自旋循环提示 `std::hint::spin_loop()` 可用于告知处理器存在自旋循环，这可能会提高其效率。
+- `SpinLock<T>` 可以仅用 `AtomicBool` 和 `UnsafeCell<T>` 实现，后者对于内部可变性是必需的（参见[“内部可变性”](chapter1#内部可变性interior-mutability)）。
+- 解锁和锁定操作之间的"happens-before relationship"是防止数据竞争所必需的，否则会导致未定义行为。
+- 获取和释放内存排序非常适合这种用例。
+- 当为避免未定义行为而做出未经检查的假设时，可以通过使函数不安全将责任转移给调用者。
+- `Deref` 和 `DerefMut` 特性可用于使类型表现得像引用一样，透明地提供对另一个对象的访问。
+- `Drop` 特性可用于在对象被丢弃时执行某些操作，例如当其超出作用域时，或当其被传递给 `drop()` 时。
+- 锁守卫是一种有用的设计模式，它是一种特殊类型，用于表示对已锁定锁的（安全）访问。由于 `Deref` 特性，这种类型通常表现得像引用，并通过 `Drop` 特性实现自动解锁。
