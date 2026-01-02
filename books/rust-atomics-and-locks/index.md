@@ -78,7 +78,13 @@ typora-root-url: ./..\..\static
 - [常见误解（Common Misconceptions）](chapter3#常见误解common-misconceptions)
 - [总结（Summary）](chapter3#总结summary)
 
-### [第4章 : 构建我们自己的自旋锁（Building Our Own Spin Lock）]()
+### [第4章 : 构建我们自己的自旋锁（Building Our Own Spin Lock）](chapter4)
+
+- [一个最小的实现（A Minimal Implementation）](chapter4#一个最小的实现a-minimal-implementation)
+- [一个不安全的自旋锁（An Unsafe Spin Lock）](chapter4#一个不安全的自旋锁an-unsafe-spin-lock)
+- [使用锁守卫的安全接口（A Safe Interface Using a Lock Guard）](chapter4#使用锁守卫的安全接口a-safe-interface-using-a-lock-guard)
+- [总结（Summary）](chapter4#总结summary)
+
 ### [第5章 : 构建我们自己的通道（Building Our Own Channels）]()
 ### [第6章 : 构建我们自己的 “Arc”（Building Our Own “Arc”）]()
 ### [第7章 : 理解处理器（Understanding the Processor）]()
