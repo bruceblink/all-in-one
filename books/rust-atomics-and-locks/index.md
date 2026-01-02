@@ -23,7 +23,7 @@ typora-root-url: ./..\..\static
 ### [第1章 : Rust 并发基础（Basics of Rust Concurrency）](chapter1.md)
   - [Rust 中的线程 （Threads in Rust）](chapter1#rust-中的线程-threads-in-rust)
   - [作用域线程（Scoped Threads）](chapter1#作用域线程scoped-threads)
-  - [共享所有权与引用计数（Shared Ownership and Reference Counting）](chapter1#共享所有权与引用计数shared-ownership-and-reference-counting)
+  -  [共享所有权与引用计数（Shared Ownership and Reference Counting）](chapter1#共享所有权与引用计数shared-ownership-and-reference-counting)
     - [静态变量（Statics）](chapter1#静态变量statics)
     - [内存泄漏（Leaking）](chapter1#内存泄漏leaking)
     - [引用计数（Reference Counting）](chapter1#引用计数reference-counting)
@@ -43,9 +43,41 @@ typora-root-url: ./..\..\static
   - [等待：线程挂起（Parking）与条件变量（Waiting: Parking and Condition Variables）](chapter1#等待线程挂起parking与条件变量waiting-parking-and-condition-variables)
     - [线程挂起（Thread Parking）](chapter1#线程挂起thread-parking)
     - [条件变量（Condition Variables）](chapter1#条件变量condition-variables)
+
+  - [总结 （Summary）](chapter1#总结-summary)
+### [第2章 : 原子操作（Atomics）](chapter2)
+  - [原子加载与存储操作（Atomic Load and Store Operations）](chapter2#原子加载与存储操作atomic-load-and-store-operations)
+    - [示例：停止标志（Example: Stop Flag）](chapter2#示例停止标志example-stop-flag)
     
-### [第2章 : 原子操作（Atomics）]()
-### [第3章 : 内存顺序（Memory Ordering）]()
+    - [示例：进度报告（Example: Progress Reporting）](chapter2#示例进度报告example-progress-reporting)
+    
+    - [示例：惰性初始化（Example: Lazy Initialization）](chapter2#示例惰性初始化example-lazy-initialization)
+  - [获取和更新操作（Fetch-and-Modify Operations）](chapter2#获取和更新操作fetch-and-modify-operations)
+    - [示例：多线程进度报告 （Example: Progress Reporting from Multiple Threads）](chapter2#示例多线程进度报告-example-progress-reporting-from-multiple-threads)
+    - [示例：统计信息 （Example: Statistics）](chapter2#示例统计信息-example-statistics)
+    - [示例：ID 分配 （Example: ID Allocation）](chapter2#示例id-分配-example-id-allocation)
+  - [比较并交换操作 （Compare-and-Exchange Operations）](chapter2#比较并交换操作-compare-and-exchange-operations)
+    - [示例：无溢出的 ID 分配 （Example: ID Allocation Without Overflow）](chapter2#示例无溢出的-id-分配-example-id-allocation-without-overflow)
+    - [示例：惰性一次性初始化 （Example: Lazy One-Time Initialization）](chapter2#示例惰性一次性初始化-example-lazy-one-time-initialization)
+
+  - [总结 （Summary）](chapter2#总结-summary)
+
+### [第3章 : 内存顺序（Memory Ordering）](chapter3)
+
+- [重排序与优化（Reordering and Optimizations）](chapter3#重排序与优化reordering-and-optimizations)
+- [内存模型（The Memory Model）](chapter3#内存模型the-memory-model)
+- [Happens-Before关系（Happens-Before Relationship）](chapter3#happens-before关系happens-before-relationship)
+  - [创建与连接线程（Spawning and Joining）](chapter3#创建与连接线程spawning-and-joining)
+- [宽松排序（Relaxed Ordering）](chapter3#宽松排序relaxed-ordering)
+- [释放与获取排序（Release and Acquire Ordering）](chapter3#释放与获取排序release-and-acquire-ordering)
+  - [示例：加锁（Example: Locking）](chapter3#示例加锁example-locking)
+  - [示例：带间接层的惰性初始化（Example: Lazy Initialization with Indirection）](chapter3#示例带间接层的惰性初始化example-lazy-initialization-with-indirection)
+- [消费排序（Consume Ordering）](chapter3#消费排序consume-ordering)
+- [顺序一致排序（Sequentially Consistent Ordering）](chapter3#顺序一致排序sequentially-consistent-ordering)
+- [内存栅栏（Fences）](chapter3#内存栅栏fences)
+- [常见误解（Common Misconceptions）](chapter3#常见误解common-misconceptions)
+- [总结（Summary）](chapter3#总结summary)
+
 ### [第4章 : 构建我们自己的自旋锁（Building Our Own Spin Lock）]()
 ### [第5章 : 构建我们自己的通道（Building Our Own Channels）]()
 ### [第6章 : 构建我们自己的 “Arc”（Building Our Own “Arc”）]()
@@ -56,6 +88,4 @@ typora-root-url: ./..\..\static
 
 
 ## 翻译进度
-
-- [x]
 

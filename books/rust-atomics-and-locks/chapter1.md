@@ -924,7 +924,7 @@ thread::scope(|s| {
 
 `thread::park()` 和 `Condvar::wait()` 都有带超时的版本：`thread::park_timeout()` 和 `Condvar::wait_timeout()`。它们额外接收一个 `Duration` 参数，用于指定在等待多长时间后放弃等待并无条件唤醒。
 
-## 总结
+## 总结 （Summary）
 
 - 多个线程可以在同一个程序中并发运行，并且可以在任何时候创建。
 - 当主线程结束时，整个程序也会随之结束。
