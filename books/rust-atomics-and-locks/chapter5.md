@@ -498,3 +498,122 @@ note: this function takes ownership of the receiver `self`, which moves `sender`
 不幸的是，可能会出现新的问题，导致更多的运行时开销。在这个案例中，问题是分裂的所有权，为此我们不得不求助于 `Arc` 并支付分配的成本。
 
 必须在安全性、便利性、灵活性、简单性和性能之间进行权衡是不幸的，但有时是不可避免的。Rust 通常努力让在所有方面都表现出色变得容易，但有时会让你牺牲一点某方面以最大化另一方面。
+
+## **通过借用避免分配**（Borrowing to Avoid Allocation）
+
+我们刚刚设计的基于 `Arc` 的通道实现使用起来非常方便，但代价是一些性能，因为它必须分配内存。如果我们想要优化效率，可以通过让用户负责共享的 `Channel` 对象来用一些便利性换取性能。我们不再在幕后处理 `Channel` 的分配和所有权，而是强制用户创建一个可以被 `Sender` 和 `Receiver` 借用的 `Channel`。这样，他们可以选择简单地将 `Channel` 放在局部变量中，避免分配内存的开销。
+
+我们还将不得不牺牲一些简单性，因为我们现在必须处理借用和生命周期。
+
+因此，这三种类型现在将如下所示，`Channel` 再次公开，`Sender` 和 `Receiver` 在一定生命周期内借用它：
+
+```rust
+pub struct Channel<T> {
+    message: UnsafeCell<MaybeUninit<T>>,
+    ready: AtomicBool,
+}
+
+unsafe impl<T> Sync for Channel<T> where T: Send {}
+
+pub struct Sender<'a, T> {
+    channel: &'a Channel<T>,
+}
+
+pub struct Receiver<'a, T> {
+    channel: &'a Channel<T>,
+}
+```
+
+我们不再使用 `channel()` 函数来创建 `(Sender, Receiver)` 对，而是回到本章早些时候使用的 `Channel::new`，允许用户将这样的对象创建为局部变量。
+
+此外，我们需要一种方法让用户创建将借用 `Channel` 的 `Sender` 和 `Receiver` 对象。这将需要是一个独占借用（`&mut Channel`），以确保同一通道不能有多个发送者或接收者。通过同时提供 `Sender` 和 `Receiver`，我们可以将独占借用拆分为两个共享借用，这样发送者和接收者都可以引用通道，同时防止其他任何东西接触通道。
+
+这导致了以下实现：
+
+```rust
+impl<T> Channel<T> {
+    pub const fn new() -> Self {
+        Self {
+            message: UnsafeCell::new(MaybeUninit::uninit()),
+            ready: AtomicBool::new(false),
+        }
+    }
+
+    pub fn split<'a>(&'a mut self) -> (Sender<'a, T>, Receiver<'a, T>) {
+        *self = Self::new();
+        (Sender { channel: self }, Receiver { channel: self })
+    }
+}
+```
+
+具有稍微复杂签名的 `split` 方法值得仔细看看。它通过独占引用独占地借用 `self`，但将其拆分为两个共享引用，包装在 `Sender` 和 `Receiver` 类型中。生命周期 `'a` 清楚地表明这两个对象都借用了具有有限生命周期的东西；在这种情况下，就是 `Channel` 本身。由于 `Channel` 是独占借用的，只要 `Sender` 或 `Receiver` 对象存在，调用者将不能借用或移动它。
+
+然而，一旦这些对象都不存在了，可变借用就会过期，编译器乐意让 `Channel` 对象被第二次调用 `split()` 时再次借用。虽然我们可以假设在 `Sender` 和 `Receiver` 仍然存在时不能再次调用 `split()`，但我们不能防止在这些对象被丢弃或遗忘后第二次调用 `split()`。我们需要确保不会意外地为已经设置了 `ready` 标志的通道创建新的 `Sender` 或 `Receiver` 对象，因为这会破坏防止未定义行为的假设。
+
+通过在 `split()` 中用一个新的空通道覆盖 `*self`，我们确保在创建 `Sender` 和 `Receiver` 状态时它处于预期状态。这也调用了旧的 `*self` 上的 `Drop` 实现，它将负责丢弃之前发送但未接收的消息。
+
+由于 `split` 签名中的生命周期来自 `self`，因此可以省略。上面代码片段中 `split` 的签名与这个更简洁的版本相同：
+
+```rust
+pub fn split(&mut self) -> (Sender<T>, Receiver<T>) { … }
+```
+
+虽然这个版本没有明确显示返回的对象借用 `self`，但编译器仍然会检查生命周期的正确使用，就像它检查更详细的版本一样。
+
+其余的方法和 `Drop` 实现与基于 `Arc` 的实现相同，除了为 `Sender` 和 `Receiver` 类型添加了一个额外的 `'_` 生命周期参数。（如果你忘记了这些，编译器会建议添加它们。）
+
+为了完整起见，以下是剩余的代码：
+
+```rust
+impl<T> Sender<'_, T> {
+    pub fn send(self, message: T) {
+        unsafe { (*self.channel.message.get()).write(message) };
+        self.channel.ready.store(true, Release);
+    }
+}
+
+impl<T> Receiver<'_, T> {
+    pub fn is_ready(&self) -> bool {
+        self.channel.ready.load(Relaxed)
+    }
+
+    pub fn receive(self) -> T {
+        if !self.channel.ready.swap(false, Acquire) {
+            panic!("no message available!");
+        }
+        unsafe { (*self.channel.message.get()).assume_init_read() }
+    }
+}
+
+impl<T> Drop for Channel<T> {
+    fn drop(&mut self) {
+        if *self.ready.get_mut() {
+            unsafe { self.message.get_mut().assume_init_drop() }
+        }
+    }
+}
+```
+
+让我们测试一下！
+
+```rust
+fn main() {
+    let mut channel = Channel::new();
+    thread::scope(|s| {
+        let (sender, receiver) = channel.split();
+        let t = thread::current();
+        s.spawn(move || {
+            sender.send("hello world!");
+            t.unpark();
+        });
+        while !receiver.is_ready() {
+            thread::park();
+        }
+        assert_eq!(receiver.receive(), "hello world!");
+    });
+}
+```
+
+与基于 `Arc` 的版本相比，便利性的降低非常小：我们只需要多一行来手动创建一个 `Channel` 对象。但请注意，通道必须在作用域之前创建，以向编译器证明它的存在将比发送者和接收者都长。
+
+要查看编译器的借用检查器如何工作，可以尝试在不同位置添加第二次对 `channel.split()` 的调用。你会看到，在线程作用域内第二次调用会导致错误，而在作用域之后调用则是可以接受的。甚至在作用域之前调用 `split()` 也是可以的，只要你在作用域开始之前停止使用返回的 `Sender` 和 `Receiver`。
