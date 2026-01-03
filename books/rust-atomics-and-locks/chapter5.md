@@ -617,3 +617,113 @@ fn main() {
 与基于 `Arc` 的版本相比，便利性的降低非常小：我们只需要多一行来手动创建一个 `Channel` 对象。但请注意，通道必须在作用域之前创建，以向编译器证明它的存在将比发送者和接收者都长。
 
 要查看编译器的借用检查器如何工作，可以尝试在不同位置添加第二次对 `channel.split()` 的调用。你会看到，在线程作用域内第二次调用会导致错误，而在作用域之后调用则是可以接受的。甚至在作用域之前调用 `split()` 也是可以的，只要你在作用域开始之前停止使用返回的 `Sender` 和 `Receiver`。
+
+## **阻塞**（Blocking）
+
+最后，让我们解决 `Channel` 剩下的主要不便之处：缺乏阻塞接口。每次测试我们的通道新变体时，我们已经使用了线程停车。将这种模式集成到通道本身应该不会太难。
+
+为了能够唤醒接收者，发送者需要知道要唤醒哪个线程。`std::thread::Thread` 类型表示线程的句柄，正是我们调用 `unpark()` 所需要的。我们将在 `Sender` 对象内部存储接收线程的句柄，如下所示：
+
+```rust
+use std::thread::Thread;
+
+pub struct Sender<'a, T> {
+    channel: &'a Channel<T>,
+    receiving_thread: Thread, // 新字段！
+}
+```
+
+然而，如果 `Receiver` 对象在线程之间发送，这个句柄将引用错误的线程。`Sender` 将不知道这一点，仍然引用最初持有 `Receiver` 的线程。
+
+我们可以通过使 `Receiver` 受到更多限制来解决这个问题，不允许它再在线程之间发送。正如["线程安全性：Send 和 Sync"](chapter1#线程安全send-和-sync-thread-safety-send-and-sync)中所讨论的，我们可以使用特殊的 `PhantomData` 标记类型将此限制添加到我们的结构体中。`PhantomData<*const ()>` 可以完成这项工作，因为原始指针（例如 `*const ()`）没有实现 `Send`：
+
+```rust
+pub struct Receiver<'a, T> {
+    channel: &'a Channel<T>,
+    _no_send: PhantomData<*const ()>, // 新字段！
+}
+```
+
+接下来，我们必须修改 `Channel::split` 方法来填充新字段，如下所示：
+
+```rust
+pub fn split<'a>(&'a mut self) -> (Sender<'a, T>, Receiver<'a, T>) {
+    *self = Self::new();
+    (
+        Sender {
+            channel: self,
+            receiving_thread: thread::current(), // 新字段！
+        },
+        Receiver {
+            channel: self,
+            _no_send: PhantomData, // 新字段！
+        }
+    )
+}
+```
+
+我们使用当前线程的句柄作为 `receiving_thread` 字段，因为我们返回的 `Receiver` 对象将停留在当前线程上。
+
+`send` 方法变化不大，如下所示。我们只需在 `receiving_thread` 上调用 `unpark()`，以便在接收者等待时唤醒它：
+
+```rust
+impl<T> Sender<'_, T> {
+    pub fn send(self, message: T) {
+        unsafe { (*self.channel.message.get()).write(message) };
+        self.channel.ready.store(true, Release);
+        self.receiving_thread.unpark(); // 新代码！
+    }
+}
+```
+
+`receive` 函数经历了一个稍大的变化。新版本在还没有消息时不会恐慌，而是会使用 `thread::park()` 耐心等待消息，并尝试多次（必要时）：
+
+```rust
+impl<T> Receiver<'_, T> {
+    pub fn receive(self) -> T {
+        while !self.channel.ready.swap(false, Acquire) {
+            thread::park();
+        }
+        unsafe { (*self.channel.message.get()).assume_init_read() }
+    }
+}
+```
+
+请记住，`thread::park()` 可能会虚假返回。（或者因为除我们的 `send` 方法之外的某些东西调用了 `unpark()`。）这意味着我们不能假设 `park()` 返回时 `ready` 标志已经被设置。因此，我们需要使用一个循环在唤醒后再次检查该标志。
+
+`Channel<T>` 结构体、其 `Sync` 实现、其 `new` 函数和其 `Drop` 实现保持不变。
+
+让我们试试看！
+
+```rust
+fn main() {
+    let mut channel = Channel::new();
+    thread::scope(|s| {
+        let (sender, receiver) = channel.split();
+        s.spawn(move || {
+            sender.send("hello world!");
+        });
+        assert_eq!(receiver.receive(), "hello world!");
+    });
+}
+```
+
+显然，这个 `Channel` 比上一个更易于使用，至少在这个简单的测试程序中是这样。我们为这种便利性付出了代价，牺牲了一些灵活性：只有调用 `split()` 的线程才能调用 `receive()`。如果你交换 `send` 和 `receive` 行，这个程序将不再编译。根据使用场景，这可能完全可以、有用，或非常不便。
+
+有许多方法可以解决这个问题，其中许多会增加我们的复杂性并影响性能。一般来说，我们可以继续探索的变化和权衡几乎是无穷无尽的。
+
+我们可以轻易花费大量不健康的时间来实现一次性通道的另外二十个变体，每个变体都有略有不同的特性，适用于每个可以想象的用例以及更多。虽然这听起来很有趣，但我们可能应该避免掉进这个兔子洞，在事情失控之前结束本章。
+
+## **总结**（Summary）
+
+- 通道用于在线程之间发送消息。
+- 一个简单、灵活但可能效率不高的通道相对容易实现，只需一个 `Mutex` 和一个 `Condvar`。
+- 一次性通道是设计用于只发送一条消息的通道。
+- `MaybeUninit<T>` 类型可用于表示可能尚未初始化的 `T`。其接口大部分不安全，使其用户负责跟踪它是否已初始化、不复制 `Copy` 数据以及在必要时丢弃其内容。
+- 不丢弃对象（也称为泄漏或忘记）是安全的，但在没有充分理由的情况下这样做是不受欢迎的。
+- 恐慌是创建安全接口的重要工具。
+- 按值获取非 `Copy` 对象可用于防止某些事情被多次执行。
+- 独占借用和拆分借用可以是强制正确性的强大工具。
+- 我们可以通过确保对象的类型不实现 `Send` 来确保对象停留在同一线程上，这可以通过 `PhantomData` 标记类型实现。
+- 每个设计和实现决策都涉及权衡，最好在考虑特定用例的情况下做出。
+- 在没有用例的情况下设计某些东西可能很有趣且具有教育意义，但可能变成一项无尽的任务。
