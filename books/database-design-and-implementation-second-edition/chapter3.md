@@ -3,7 +3,7 @@ sidebar_position: 3
 typora-root-url: ./..\..\static
 ---
 
-# 第 3 章 - 磁盘和文件管理 (Chapter 3 Disk and File Management)
+# 第 3 章 - 磁盘和文件管理 (Disk and File Management)
 
 数据库引擎将其数据保存在磁盘和闪存驱动器等持久存储设备上。本章将探讨这些设备的特性，并考虑可以提高其速度和可靠性的技术（如 RAID）。本章还将考察操作系统提供的与这些设备交互的两个接口——块级接口和文件级接口——并提出一种最适合数据库系统的两种接口组合。最后，本章将详细研究 SimpleDB 文件管理器，学习其 API 和实现。
 
