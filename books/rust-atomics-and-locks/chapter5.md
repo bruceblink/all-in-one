@@ -336,3 +336,165 @@ thread '<unnamed>' panicked at 'can't send more than one message!', src/main.rs
 >        }
 >}
 >```
+
+
+
+## **通过类型实现安全**（Safety Through Types）
+
+虽然我们已经成功地保护了 `Channel` 的用户免受未定义行为的影响，但如果他们意外地错误使用它，仍然面临恐慌的风险。理想情况下，编译器会检查正确用法，并在程序运行前指出误用。
+
+让我们看看多次调用 `send` 或 `receive` 的问题。
+
+为了防止一个函数被多次调用，我们可以让它按值获取一个参数，这对于非 `Copy` 类型来说将消耗该对象。一个对象被消耗或移动后，就从调用者那里消失了，防止了它被再次使用。
+
+通过将调用 `send` 或 `receive` 的能力各自表示为一个单独的（非 `Copy`）类型，并在执行操作时消耗该对象，我们可以确保每个操作只能发生一次。
+
+这给我们带来了以下接口设计：通道不再由单个 `Channel` 类型表示，而是由一对 `Sender` 和 `Receiver` 表示，它们各自有一个按值获取 `self` 的方法：
+
+```rust
+pub fn channel<T>() -> (Sender<T>, Receiver<T>) { … }
+pub struct Sender<T> { … }
+pub struct Receiver<T> { … }
+
+impl<T> Sender<T> {
+    pub fn send(self, message: T) { … }
+}
+
+impl<T> Receiver<T> {
+    pub fn is_ready(&self) -> bool { … }
+    pub fn receive(self) -> T { … }
+}
+```
+
+用户可以通过调用 `channel()` 来创建通道，这将给他们一个 `Sender` 和一个 `Receiver`。他们可以自由地传递这些对象中的每一个，将它们移动到另一个线程，等等。但是，他们最终不能拥有其中任何一个的多个副本，从而保证 `send` 和 `receive` 每个都只能被调用一次。
+
+为了实现这一点，我们需要为我们的 `UnsafeCell` 和 `AtomicBool` 找到一个存放位置。之前，我们只有一个包含这些字段的结构体，但现在我们有两个独立的结构体，每个都可能比另一个存活得更久。
+
+由于发送者和接收者需要共享这些变量的所有权，我们将使用 `Arc`（["引用计数"](chapter1#引用计数reference-counting)）来为我们提供一个引用计数的共享分配，在其中存储共享的 `Channel` 对象。如下所示，`Channel` 类型不必是公开的，因为它的存在只是一个与用户无关的实现细节。
+
+```rust
+pub struct Sender<T> {
+    channel: Arc<Channel<T>>,
+}
+
+pub struct Receiver<T> {
+    channel: Arc<Channel<T>>,
+}
+
+struct Channel<T> { // 不再是 `pub`
+    message: UnsafeCell<MaybeUninit<T>>,
+    ready: AtomicBool,
+}
+
+unsafe impl<T> Sync for Channel<T> where T: Send {}
+```
+
+就像之前一样，我们在 `T` 是 `Send` 的条件下为 `Channel<T>` 实现 `Sync`，以允许它在线程间使用。
+
+注意，我们不再需要像之前通道实现中那样的 `in_use` 原子布尔值。它仅被 `send` 用来检查它没有被多次调用，而这现在通过类型系统得到了静态保证。
+
+创建通道和发送者-接收者对的 `channel` 函数类似于我们之前拥有的 `Channel::new` 函数，除了它将 `Channel` 包装在 `Arc` 中，并将该 `Arc` 及其克隆包装在 `Sender` 和 `Receiver` 类型中：
+
+```rust
+pub fn channel<T>() -> (Sender<T>, Receiver<T>) {
+    let a = Arc::new(Channel {
+        message: UnsafeCell::new(MaybeUninit::uninit()),
+        ready: AtomicBool::new(false),
+    });
+    (Sender { channel: a.clone() }, Receiver { channel: a })
+}
+```
+
+`send`、`is_ready` 和 `receive` 方法基本上与我们之前实现的方法相同，但有一些区别：
+
+- 它们现在被移到各自的类型中，这样只有（唯一的）发送者可以发送，只有（唯一的）接收者可以接收。
+- `send` 和 `receive` 现在按值而不是按引用获取 `self`，以确保它们每个都只能被调用一次。
+- `send` 不再可能恐慌，因为它的前提条件（只被调用一次）现在得到了静态保证。
+
+所以，它们现在看起来像这样：
+
+```rust
+impl<T> Sender<T> {
+    /// 这永远不会恐慌。 :)
+    pub fn send(self, message: T) {
+        unsafe { (*self.channel.message.get()).write(message) };
+        self.channel.ready.store(true, Release);
+    }
+}
+
+impl<T> Receiver<T> {
+    pub fn is_ready(&self) -> bool {
+        self.channel.ready.load(Relaxed)
+    }
+
+    pub fn receive(self) -> T {
+        if !self.channel.ready.swap(false, Acquire) {
+            panic!("no message available!");
+        }
+        unsafe { (*self.channel.message.get()).assume_init_read() }
+    }
+}
+```
+
+`receive` 函数仍然可能恐慌，因为用户仍然可能在 `is_ready()` 返回 `true` 之前调用它。它仍然使用 `swap` 将 `ready` 标志设置回 `false`（而不仅仅是 `load`），以便 `Channel` 的 `Drop` 实现知道是否有一条未读的消息需要被丢弃。
+
+那个 `Drop` 实现与我们之前实现的完全相同：
+
+```rust
+impl<T> Drop for Channel<T> {
+    fn drop(&mut self) {
+        if *self.ready.get_mut() {
+            unsafe { self.message.get_mut().assume_init_drop() }
+        }
+    }
+}
+```
+
+当 `Sender<T>` 或 `Receiver<T>` 被丢弃时，`Arc<Channel<T>>` 的 `Drop` 实现将减少分配的引用计数。当丢弃第二个时，该计数达到零，`Channel<T>` 本身被丢弃。这将调用我们上面的 `Drop` 实现，在那里如果发送了消息但未被接收，我们可以丢弃该消息。
+
+让我们试试看：
+
+```rust
+fn main() {
+    thread::scope(|s| {
+        let (sender, receiver) = channel();
+        let t = thread::current();
+        s.spawn(move || {
+            sender.send("hello world!");
+            t.unpark();
+        });
+        while !receiver.is_ready() {
+            thread::park();
+        }
+        assert_eq!(receiver.receive(), "hello world!");
+    });
+}
+```
+
+我们仍然必须手动使用线程停车来等待消息，这有点不方便，但我们稍后会处理这个问题。
+
+目前，我们的目标是至少在编译时使一种形式的误用成为不可能。与上次不同，尝试发送两次不会导致程序恐慌，而是根本不会产生有效的程序。如果我们在上面的工作程序中添加另一个 `send` 调用，编译器现在会捕捉到问题并耐心地告知我们的错误：
+
+```
+error[E0382]: use of moved value: `sender`
+--> src/main.rs
+|
+|     sender.send("hello world!");
+|     --------------------
+|     `sender` moved due to this method call
+|
+|     sender.send("second message");
+|     ^^^^^^ value used here after move
+note: this function takes ownership of the receiver `self`, which moves `sender`
+--> src/lib.rs
+|
+|     pub fn send(self, message: T) {
+|                ^^^^
+= note: move occurs because `sender` has type `Sender<&str>`, which does not implement the `Copy` trait
+```
+
+根据情况，设计一个能在编译时捕捉错误的接口可能非常棘手。如果情况确实适合这样的接口，它不仅能为用户带来更多便利，还能减少对现在已得到静态保证的事物的运行时检查。例如，我们不再需要 `in_use` 标志，并从 `send` 方法中移除了交换和检查。
+
+不幸的是，可能会出现新的问题，导致更多的运行时开销。在这个案例中，问题是分裂的所有权，为此我们不得不求助于 `Arc` 并支付分配的成本。
+
+必须在安全性、便利性、灵活性、简单性和性能之间进行权衡是不幸的，但有时是不可避免的。Rust 通常努力让在所有方面都表现出色变得容易，但有时会让你牺牲一点某方面以最大化另一方面。
