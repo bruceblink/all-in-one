@@ -130,3 +130,132 @@ OTP已在许多生产系统中经过实战检验，并且与Erlang结合得如�
 得益于其并发模型，Erlang在选择架构时为您提供了很大的灵活性，而不会迫使您在系统可用性上妥协。您可以选择更粗粒度的拆分，仅使用少数几个与组织结构对齐的服务。在许多情况下，部署到Heroku、Fly.io或Gigalixir等平台即服务上的单体架构就足够了。如果情况发生变化（可能是因为系统规模和复杂性增长），您可以逐步转向（微）服务架构。
 
 关于Erlang的介绍到此为止。但如果Erlang如此出色，为什么还需要Elixir呢？下一节旨在回答这个问题。
+
+
+
+## 1.2 关于（About Elixir）
+
+Elixir是Erlang虚拟机的另一种语言选择，它能让你编写更清晰、更简洁的代码，从而更好地表达你的意图。你用Elixir编写程序，并在BEAM中正常运行它们。
+
+Elixir是一个开源项目，最初由José Valim发起。与Erlang不同，Elixir更注重社区协作；目前已有约1200位贡献者。新功能经常在邮件列表、GitHub问题追踪器以及Libera.Chat的#elixir-lang IRC频道上进行讨论。José拥有最终决定权，但整个项目是真正的开源协作成果，吸引了一大批经验丰富的Erlang老手和才华横溢的年轻开发者。源代码可以在GitHub仓库中找到：https://github.com/elixir-lang/elixir。
+
+Elixir的目标是Erlang运行时。编译Elixir源代码的结果是符合BEAM规范的字节码文件，这些文件可以在BEAM实例中运行，并且通常可以与纯Erlang代码协作——你可以从Elixir中使用Erlang库，反之亦然。在Erlang中能做到的事情，在Elixir中同样可以实现，而且通常Elixir代码的性能与其Erlang版本相当。
+
+Elixir在语义上接近Erlang：它的许多语言结构直接对应Erlang中的相应部分。但Elixir提供了一些额外的构造，可以显著减少样板代码和重复。此外，它整理了一些标准库的重要部分，提供了一些简洁的语法糖，以及一个统一的工具来创建和打包系统。你在Erlang中能做的任何事情，在Elixir中都可以实现，反之亦然，但根据我的经验，Elixir解决方案通常更容易开发和维护。
+
+让我们仔细看看Elixir如何改进Erlang的一些特性。首先从减少样板代码和干扰项开始。
+
+### **1.2.1 代码简化**（Code simplification）
+
+Elixir最重要的优势之一是它能够从根本上减少样板代码，消除代码中的干扰项，从而产生更简单、更易于编写和维护的代码。让我们通过对比Erlang和Elixir代码来看看这意味着什么。
+
+Erlang并发系统中常用的构建块是服务器进程。你可以将服务器进程视为类似并发对象的东西——它们封装了私有状态，并可以通过消息与其他进程交互。由于是并发的，不同的进程可以并行运行。典型的Erlang系统严重依赖进程，运行着成千上万甚至数百万个。
+
+下面的Erlang示例代码实现了一个简单的服务器进程，用于将两个数字相加。
+
+**代码清单1.1 基于Erlang的服务器进程，用于将两个数字相加**
+
+```erlang
+-module(sum_server).
+-behaviour(gen_server).
+-export([
+start/0, sum/3,
+init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,code_change/3
+]).
+start() -> gen_server:start(?MODULE, [], []).
+sum(Server, A, B) -> gen_server:call(Server, {sum, A, B}).
+init(_) -> {ok, undefined}.
+handle_call({sum, A, B}, _From, State) -> {reply, A + B, State}.
+handle_cast(_Msg, State) -> {noreply, State}.
+handle_info(_Info, State) -> {noreply, State}.
+terminate(_Reason, _State) -> ok.
+code_change(_OldVsn, State, _Extra) -> {ok, State}.
+```
+
+即使没有任何Erlang知识，对于一个仅仅将两个数字相加的功能来说，这似乎也显得代码太多了。公平地说，这个加法是并发的，但尽管如此，由于大量的代码，我们很难看清本质。代码的功能绝对不是一目了然的。而且，编写这样的代码很困难。即使经过多年的Erlang生产级开发，我仍然无法在不查阅文档或从先前编写的代码中复制粘贴的情况下写出这些代码。
+
+Erlang的问题在于，这种样板代码几乎无法移除，即使它在大多数地方都是相同的（根据我的经验，情况确实如此）。这门语言几乎不支持消除这种干扰项。公平地说，有一种叫做"解析转换"的结构可以减少样板代码，但它使用起来笨拙且复杂。在实践中，Erlang开发人员使用上述模式编写他们的服务器进程。
+
+由于服务器进程是Erlang中一个重要且常用的工具，Erlang开发人员必须不断地复制粘贴这些干扰项并与之打交道，这很不幸。令人惊讶的是，许多人已经习惯了，可能是因为BEAM为他们带来了美妙的东西。人们常说，Erlang使困难的事情变得容易，而使容易的事情变得困难。尽管如此，前面的代码给人的印象是，你应该能做得更好。
+
+让我们看看同一服务器进程的Elixir版本。
+
+**代码清单1.2 基于Elixir的服务器进程，用于将两个数字相加**
+
+```elixir
+defmodule SumServer do
+  use GenServer
+
+  def start do
+    GenServer.start(__MODULE__, nil)
+  end
+
+  def sum(server, a, b) do
+    GenServer.call(server, {:sum, a, b})
+  end
+
+  def handle_call({:sum, a, b}, _from, state) do
+    {:reply, a + b, state}
+  end
+end
+```
+
+Elixir版本需要的代码量显著减少，因此更易于阅读和维护。其意图更清晰地展现出来，且受干扰项的拖累更少。然而，它与Erlang版本一样强大和灵活。它在运行时的行为完全相同，并保留了完整的语义。Erlang版本能做的任何事情，在Elixir版本中同样可以实现。
+
+尽管显著精简，但考虑到它所做的只是将两个数字相加，这个Elixir版本的求和服务器进程仍然感觉有些冗杂。存在这些多余的干扰项，是因为Elixir与底层用于创建服务器进程的Erlang库保持着1:1的语义关系。
+
+但Elixir为你提供了工具，可以进一步消除你可能视为干扰项和重复的东西。例如，我开发了自己的Elixir库，名为ExActor，它使服务器进程的定义非常紧凑，如下所示。
+
+**代码清单1.3 基于ExActor的Elixir服务器进程**
+
+```elixir
+defmodule SumServer do
+  use ExActor.GenServer
+
+  defstart start
+
+  defcall sum(a, b) do
+    reply(a + b)
+  end
+end
+```
+
+即使对于没有Elixir经验的开发人员来说，这段代码的意图也应该是显而易见的。在运行时，这段代码的工作方式几乎与前两个版本完全相同。使这段代码表现得像前面示例的转换发生在编译时。就字节码而言，所有三个版本都是相似的。
+
+**注意** 我提到ExActor库只是为了说明在Elixir中可以抽象掉多少东西。在本书中你不会使用这个库，因为它是一个第三方抽象，隐藏了服务器进程如何工作的重要细节。为了充分利用服务器进程，重要的是你要理解它们的运作机制，这就是为什么在本书中你将学习底层的抽象。一旦你理解了服务器进程的工作原理，你可以自己决定是否要使用ExActor来实现服务器进程。
+
+这个求和服务器进程的最终实现依赖于Elixir的**宏**功能。宏是在编译时运行的Elixir代码。宏以源代码的内部表示作为输入，并可以创建替代输出。Elixir宏的灵感来自Lisp，不应与C风格的宏混淆。与处理纯文本的C/C++宏不同，Elixir宏作用于抽象语法树（AST）结构，这使得对输入代码执行非平凡的操作以获得替代输出变得更加容易。当然，Elixir提供了辅助构造来简化这种转换。
+
+让我们再看看在代码清单1.3中求和操作是如何定义的：
+
+```elixir
+defcall sum(a, b) do
+  reply(a + b)
+end
+```
+
+注意开头的`defcall`。在Elixir中没有这样的关键字。这是一个自定义宏，它将给定的定义转换为类似以下的内容：
+
+```elixir
+def sum(server, a, b) do
+  GenServer.call(server, {:sum, a, b})
+end
+
+def handle_call({:sum, a, b}, _from, state) do
+  {:reply, a + b, state}
+end
+```
+
+因为宏是用Elixir编写的，所以它们既灵活又强大，使得扩展语言并引入看起来像语言固有部分的新结构成为可能。例如，旨在为Elixir带来LINQ风格查询的开源Ecto项目，也依赖于Elixir的宏支持，并提供了具有表现力的查询语法，看起来简直像是语言的一部分：
+
+```elixir
+from w in Weather,
+where: w.prcp > 0 or w.prcp == nil,
+select: w
+```
+
+由于其宏支持和智能编译器架构，Elixir的大部分都是用Elixir编写的。像`if`和`unless`这样的语言构造都是通过Elixir宏实现的。只有尽可能小的核心部分是用Erlang完成的——其他所有东西都是在Elixir中在此基础上构建的！
+
+Elixir宏有点像一门高深的艺术，但它们使得在编译时消除非平凡样板代码并用你自己的类似DSL的构造扩展语言成为可能。
+
+但Elixir不仅仅是关于宏。另一个值得称道的改进是一些看似简单的语法糖，它们使函数式编程变得容易得多。
