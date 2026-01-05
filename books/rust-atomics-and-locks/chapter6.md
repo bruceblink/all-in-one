@@ -194,3 +194,236 @@ pub fn get_mut(arc: &mut Self) -> Option<&mut T> {
 返回的可变引用隐式地从参数借用生命周期，这意味着只要返回的 `&mut T` 还存在，就不能使用原始的 `Arc`，从而允许安全地改变。
 
 当 `&mut T` 的生命周期结束时，`Arc` 可以再次被使用并与其他线程共享。有人可能想知道，我们是否需要担心之后访问数据的线程的内存顺序。然而，那是用于将 `Arc`（或其新克隆）与另一个线程共享的任何机制的责任。（例如，互斥锁、通道或生成新线程。）
+
+## **弱指针**（Weak Pointers）
+
+引用计数在表示内存中由多个对象组成的结构时非常有用。例如，树结构中的每个节点可以包含一个指向其每个子节点的 `Arc`。这样，当一个节点被丢弃时，不再使用的子节点也都会（递归地）被丢弃。
+
+然而，这对于循环结构来说会出问题。如果子节点也包含一个指向其父节点的 `Arc`，那么两者都不会被丢弃，因为总是至少有一个 `Arc` 仍在引用它。
+
+标准库的 `Arc` 附带了该问题的解决方案：`Weak<T>`。`Weak<T>`，也称为弱指针，行为有点像 `Arc<T>`，但不会阻止对象被丢弃。一个 `T` 可以在多个 `Arc<T>` 和 `Weak<T>` 对象之间共享，但当所有 `Arc<T>` 对象都消失时，`T` 会被丢弃，无论是否还有任何 `Weak<T>` 对象留下。
+
+这意味着 `Weak<T>` 可以在没有 `T` 的情况下存在，因此不能像 `Arc<T>` 那样无条件地提供 `&T`。然而，为了通过 `Weak<T>` 访问 `T`，可以通过其 `upgrade()` 方法将其升级为 `Arc<T>`。此方法返回一个 `Option<Arc<T>>`，如果 `T` 已被丢弃则返回 `None`。
+
+在基于 `Arc` 的结构中，`Weak` 可用于打破循环。例如，树结构中的子节点可以为父节点使用 `Weak` 而不是 `Arc`。这样，父节点的丢弃就不会因其子节点的存在而被阻止。
+
+让我们来实现这个。
+
+和之前一样，当 `Arc` 对象的数量达到零时，我们可以丢弃包含的 `T` 对象。然而，我们还不能丢弃和释放 `ArcData`，因为可能仍有弱指针引用它。只有当最后一个 `Weak` 指针也消失后，我们才能丢弃和释放 `ArcData`。
+
+因此，我们将使用两个计数器：一个用于“引用 `T` 的事物数量”，另一个用于“引用 `ArcData<T>` 的事物数量”。换句话说，第一个计数器与之前相同：它计数 `Arc` 对象，而第二个计数器同时计数 `Arc` 和 `Weak` 对象。
+
+我们还需要一些东西，允许我们在弱指针仍在使用 `ArcData<T>` 时丢弃包含的对象（`T`）。我们将使用一个 `Option<T>`，这样当数据被丢弃时我们可以使用 `None`，并将其包装在 `UnsafeCell` 中用于内部可变性（[“内部可变性”](chapter1#内部可变性interior-mutability)），以允许在 `ArcData<T>` 不被独占拥有时发生这种情况：
+```rust
+struct ArcData<T> {
+    /// `Arc` 的数量。
+    data_ref_count: AtomicUsize,
+    /// `Arc` 和 `Weak` 的总数。
+    alloc_ref_count: AtomicUsize,
+    /// 数据。如果只剩下弱指针，则为 `None`。
+    data: UnsafeCell<Option<T>>,
+}
+```
+如果我们将 `Weak<T>` 视为一个负责保持 `ArcData<T>` 存活的对象，那么将 `Arc<T>` 实现为一个包含 `Weak<T>` 的结构体是有意义的，因为 `Arc<T>` 需要做同样的事情，甚至更多。
+
+```rust
+pub struct Arc<T> {
+    weak: Weak<T>,
+}
+
+pub struct Weak<T> {
+    ptr: NonNull<ArcData<T>>,
+}
+
+unsafe impl<T: Sync + Send> Send for Weak<T> {}
+unsafe impl<T: Sync + Send> Sync for Weak<T> {}
+```
+`new` 函数与之前基本相同，只是现在需要同时初始化两个计数器：
+```rust
+impl<T> Arc<T> {
+    pub fn new(data: T) -> Arc<T> {
+        Arc {
+            weak: Weak {
+                ptr: NonNull::from(Box::leak(Box::new(ArcData {
+                    alloc_ref_count: AtomicUsize::new(1),
+                    data_ref_count: AtomicUsize::new(1),
+                    data: UnsafeCell::new(Some(data)),
+                }))),
+            },
+        }
+    }
+    // …
+}
+```
+和之前一样，我们假设 `ptr` 字段始终指向一个有效的 `ArcData<T>`。这次，我们将这个假设编码为 `Weak<T>` 上的一个私有辅助方法 `data()`：
+```rust
+impl<T> Weak<T> {
+    fn data(&self) -> &ArcData<T> {
+        unsafe { self.ptr.as_ref() }
+    }
+    // …
+}
+```
+在 `Arc<T>` 的 `Deref` 实现中，我们现在必须使用 `UnsafeCell::get()` 来获取指向单元格内容的指针，并使用不安全的代码来承诺此时它可以安全地共享。我们还需要 `as_ref().unwrap()` 来获取 `Option<T>` 中的引用。我们不必担心这会 panic，因为只有当没有 `Arc` 对象剩下时，`Option` 才会是 `None`。
+```rust
+impl<T> Deref for Arc<T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        let ptr = self.weak.data().data.get();
+        // 安全性：由于存在指向数据的 Arc，数据存在且可以共享。
+        unsafe { (*ptr).as_ref().unwrap() }
+    }
+}
+```
+`Weak<T>` 的 `Clone` 实现非常简单；它几乎与我们之前 `Arc<T>` 的 `Clone` 实现相同：
+```rust
+impl<T> Clone for Weak<T> {
+    fn clone(&self) -> Self {
+        if self.data().alloc_ref_count.fetch_add(1, Relaxed) > usize::MAX / 2 {
+            std::process::abort();
+        }
+        Weak { ptr: self.ptr }
+    }
+}
+```
+在我们新的 `Arc<T>` 的 `Clone` 实现中，我们需要增加两个计数器。我们将简单地使用 `self.weak.clone()` 来复用上述代码增加第一个计数器，因此我们只需要手动增加第二个计数器：
+```rust
+impl<T> Clone for Arc<T> {
+    fn clone(&self) -> Self {
+        let weak = self.weak.clone();
+        if weak.data().data_ref_count.fetch_add(1, Relaxed) > usize::MAX / 2 {
+            std::process::abort();
+        }
+        Arc { weak }
+    }
+}
+```
+丢弃 `Weak` 应该减少其计数器，并在计数器从一变为零时丢弃并释放 `ArcData`。这与我们之前 `Arc` 的 `Drop` 实现相同。
+```rust
+impl<T> Drop for Weak<T> {
+    fn drop(&mut self) {
+        if self.data().alloc_ref_count.fetch_sub(1, Release) == 1 {
+            fence(Acquire);
+            unsafe {
+                drop(Box::from_raw(self.ptr.as_ptr()));
+            }
+        }
+    }
+}
+```
+丢弃 `Arc` 应该减少两个计数器。注意，其中一个已经自动处理了，因为每个 `Arc` 都包含一个 `Weak`，因此丢弃 `Arc` 也会导致丢弃一个 `Weak`。我们只需要处理另一个计数器：
+```rust
+impl<T> Drop for Arc<T> {
+    fn drop(&mut self) {
+        if self.weak.data().data_ref_count.fetch_sub(1, Release) == 1 {
+            fence(Acquire);
+            let ptr = self.weak.data().data.get();
+            // 安全性：数据引用计数器为零，所以不会有任何东西访问它。
+            unsafe {
+                (*ptr) = None;
+            }
+        }
+    }
+}
+```
+> 在 Rust 中丢弃一个对象会首先运行其 `Drop::drop` 函数（如果它实现了 `Drop`），然后递归地逐一丢弃其所有字段。
+
+`get_mut` 方法中的检查大部分保持不变，只是现在需要考虑弱指针。在检查独占性时忽略弱指针可能看似可行，但 `Weak<T>` 可以随时升级为 `Arc<T>`。因此，`get_mut` 在可以提供 `&mut T` 之前必须检查没有其他 `Arc<T>` 或 `Weak<T>` 指针：
+```rust
+impl<T> Arc<T> {
+    // …
+    pub fn get_mut(arc: &mut Self) -> Option<&mut T> {
+        if arc.weak.data().alloc_ref_count.load(Relaxed) == 1 {
+            fence(Acquire);
+            // 安全性：没有其他东西可以访问数据，因为只有一个 Arc，我们对其拥有独占访问权，并且没有弱指针。
+            let arcdata = unsafe { arc.weak.ptr.as_mut() };
+            let option = arcdata.data.get_mut();
+            // 我们知道数据仍然可用，因为我们有一个指向它的 Arc，所以这不会 panic。
+            let data = option.as_mut().unwrap();
+            Some(data)
+        } else {
+            None
+        }
+    }
+    // …
+}
+```
+接下来：升级弱指针。只有当数据仍然存在时，才能将 `Weak` 升级为 `Arc`。如果只剩下弱指针，就没有剩余的数据可以通过 `Arc` 共享了。因此，我们需要增加 `Arc` 计数器，但只能在该计数器不为零时进行。我们将使用一个比较并交换循环（[“比较并交换操作”](chapter2#比较并交换操作-compare-and-exchange-operations)）来实现这一点。
+
+和之前一样，增加引用计数器使用 relaxed 内存顺序是可以的。没有其他变量的操作需要严格在此原子操作之前或之后发生。
+```rust
+impl<T> Weak<T> {
+    // …
+    pub fn upgrade(&self) -> Option<Arc<T>> {
+        let mut n = self.data().data_ref_count.load(Relaxed);
+        loop {
+            if n == 0 {
+                return None;
+            }
+            assert!(n < usize::MAX);
+            if let Err(e) = self.data()
+                .data_ref_count
+                .compare_exchange_weak(n, n + 1, Relaxed, Relaxed)
+            {
+                n = e;
+                continue;
+            }
+            return Some(Arc { weak: self.clone() });
+        }
+    }
+}
+```
+> 注意这次我们如何检查 `n < usize::MAX`，因为该断言会在我们修改 `data_ref_count` 之前 panic。
+
+相反，从 `Arc<T>` 获取 `Weak<T>` 要简单得多：
+```rust
+impl<T> Arc<T> {
+    // …
+    pub fn downgrade(arc: &Self) -> Weak<T> {
+        arc.weak.clone()
+    }
+}
+```
+
+### **测试**（Testing It）
+
+为了快速测试我们的创作，我们将修改之前的单元测试以使用弱指针，并验证它们可以在预期时升级：
+```rust
+#[test]
+fn test() {
+    static NUM_DROPS: AtomicUsize = AtomicUsize::new(0);
+
+    struct DetectDrop;
+    impl Drop for DetectDrop {
+        fn drop(&mut self) {
+            NUM_DROPS.fetch_add(1, Relaxed);
+        }
+    }
+
+    // 创建一个带有两个弱指针的 Arc。
+    let x = Arc::new(("hello", DetectDrop));
+    let y = Arc::downgrade(&x);
+    let z = Arc::downgrade(&x);
+
+    let t = std::thread::spawn(move || {
+        // 此时弱指针应该可以升级。
+        let y = y.upgrade().unwrap();
+        assert_eq!(y.0, "hello");
+    });
+
+    assert_eq!(x.0, "hello");
+    t.join().unwrap();
+
+    // 数据还不应该被丢弃，弱指针应该可以升级。
+    assert_eq!(NUM_DROPS.load(Relaxed), 0);
+    assert!(z.upgrade().is_some());
+
+    drop(x);
+
+    // 现在，数据应该被丢弃了，弱指针应该不再可以升级。
+    assert_eq!(NUM_DROPS.load(Relaxed), 1);
+    assert!(z.upgrade().is_none());
+}
+```
+这段代码也编译并运行没有问题，这给我们留下了一个非常可用的手工制作的 `Arc` 实现。
