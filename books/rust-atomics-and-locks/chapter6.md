@@ -427,3 +427,275 @@ fn test() {
 }
 ```
 这段代码也编译并运行没有问题，这给我们留下了一个非常可用的手工制作的 `Arc` 实现。
+
+## **优化**（Optimizing）
+
+虽然弱指针可能有用，但 `Arc` 类型通常在没有弱指针的情况下使用。我们上一个实现的缺点是，现在克隆和丢弃一个 `Arc` 都需要分别进行两次原子操作，因为它们必须增加或减少两个计数器。这使得所有 `Arc` 用户都要为弱指针的成本“付费”，即使他们没有使用弱指针。
+
+解决方案似乎是分别计数 `Arc<T>` 和 `Weak<T>` 指针，但这样我们就无法原子地检查两个计数器是否都为零。为了理解这为何是个问题，假设我们有一个线程执行以下恼人的函数：
+
+```rust
+fn annoying(mut arc: Arc<Something>) {
+    loop {
+        let weak = Arc::downgrade(&arc);
+        drop(arc);
+        println!("I have no Arc!"); // ①
+        arc = weak.upgrade().unwrap();
+        drop(weak);
+        println!("I have no Weak!"); // ②
+    }
+}
+```
+
+这个线程不断降级和升级一个 `Arc`，使得它反复循环经过它不持有 `Arc` 的时刻（①），以及它不持有 `Weak` 的时刻（②）。如果我们检查两个计数器以查看是否有任何线程仍在使用分配，那么如果我们不幸地在第一次打印语句（①）期间检查 `Arc` 计数器，而在第二次打印语句（②）期间检查 `Weak` 计数器，这个线程可能能够隐藏它的存在。
+
+在我们上一个实现中，我们通过将每个 `Arc` 也计为一个 `Weak` 来解决这个问题。一个更微妙的方式是将所有 `Arc` 指针合计为单个 `Weak` 指针。这样，只要至少有一个 `Arc` 对象存在，弱指针计数器（`alloc_ref_count`）就永远不会达到零，就像我们上一个实现一样，但克隆一个 `Arc` 完全不需要触及那个计数器。只有丢弃最后一个 `Arc` 才会同时减少弱指针计数器。
+
+让我们尝试这个。
+
+这次，我们不能简单地将 `Arc<T>` 实现为 `Weak<T>` 的包装器，所以两者都将包装一个指向分配的非空指针：
+
+```rust
+pub struct Arc<T> {
+    ptr: NonNull<ArcData<T>>,
+}
+unsafe impl<T: Sync + Send> Send for Arc<T> {}
+unsafe impl<T: Sync + Send> Sync for Arc<T> {}
+
+pub struct Weak<T> {
+    ptr: NonNull<ArcData<T>>,
+}
+unsafe impl<T: Sync + Send> Send for Weak<T> {}
+unsafe impl<T: Sync + Send> Sync for Weak<T> {}
+```
+
+既然我们在优化实现，我们也可以使用 `std::mem::ManuallyDrop<T>` 而不是 `Option<T>` 来使 `ArcData<T>` 稍微小一些。我们使用 `Option<T>` 是为了在丢弃数据时能够将 `Some(T)` 替换为 `None`，但实际上我们不需要单独的 `None` 状态来告诉我们数据已消失，因为 `Arc<T>` 的存在或缺失已经告诉我们这一点。`ManuallyDrop<T>` 占用与 `T` 完全相同的空间，但允许我们通过不安全地调用 `ManuallyDrop::drop()` 在任何时候手动丢弃它：
+
+```rust
+use std::mem::ManuallyDrop;
+
+struct ArcData<T> {
+    /// `Arc` 的数量。
+    data_ref_count: AtomicUsize,
+    /// `Weak` 的数量，加上一如果存在任何 `Arc`。
+    alloc_ref_count: AtomicUsize,
+    /// 数据。如果只剩下弱指针，则被丢弃。
+    data: UnsafeCell<ManuallyDrop<T>>,
+}
+```
+
+`Arc::new` 函数几乎保持不变，像之前一样同时初始化两个计数器，但现在使用 `ManuallyDrop::new()` 而不是 `Some()`：
+
+```rust
+impl<T> Arc<T> {
+    pub fn new(data: T) -> Arc<T> {
+        Arc {
+            ptr: NonNull::from(Box::leak(Box::new(ArcData {
+                alloc_ref_count: AtomicUsize::new(1),
+                data_ref_count: AtomicUsize::new(1),
+                data: UnsafeCell::new(ManuallyDrop::new(data)),
+            }))),
+        }
+    }
+    // …
+}
+```
+
+`Deref` 实现不能再利用 `Weak` 类型上的私有 `data` 方法，所以我们将在 `Arc<T>` 上添加相同的私有辅助函数：
+
+```rust
+impl<T> Arc<T> {
+    // …
+    fn data(&self) -> &ArcData<T> {
+        unsafe { self.ptr.as_ref() }
+    }
+    // …
+}
+
+impl<T> Deref for Arc<T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        // 安全性：由于存在指向数据的 Arc，数据存在且可以共享。
+        unsafe { &*self.data().data.get() }
+    }
+}
+```
+
+`Weak<T>` 的 `Clone` 和 `Drop` 实现与我们上一个实现完全相同。为了完整起见，这里给出它们，包括私有的 `Weak::data` 辅助函数：
+
+```rust
+impl<T> Weak<T> {
+    fn data(&self) -> &ArcData<T> {
+        unsafe { self.ptr.as_ref() }
+    }
+    // …
+}
+
+impl<T> Clone for Weak<T> {
+    fn clone(&self) -> Self {
+        if self.data().alloc_ref_count.fetch_add(1, Relaxed) > usize::MAX / 2 {
+            std::process::abort();
+        }
+        Weak { ptr: self.ptr }
+    }
+}
+
+impl<T> Drop for Weak<T> {
+    fn drop(&mut self) {
+        if self.data().alloc_ref_count.fetch_sub(1, Release) == 1 {
+            fence(Acquire);
+            unsafe {
+                drop(Box::from_raw(self.ptr.as_ptr()));
+            }
+        }
+    }
+}
+```
+
+现在我们到了这个新的优化实现的核心部分——克隆一个 `Arc<T>` 现在只需要触及一个计数器：
+
+```rust
+impl<T> Clone for Arc<T> {
+    fn clone(&self) -> Self {
+        if self.data().data_ref_count.fetch_add(1, Relaxed) > usize::MAX / 2 {
+            std::process::abort();
+        }
+        Arc { ptr: self.ptr }
+    }
+}
+```
+
+类似地，丢弃一个 `Arc<T>` 现在只需要减少一个计数器，除了看到该计数器从一变为零的最后一次丢弃。在那种情况下，弱指针计数器也需要减少，以便在没有任何弱指针剩下时可以达到零。我们通过简单地凭空创建一个 `Weak<T>` 并立即丢弃它来实现：
+
+```rust
+impl<T> Drop for Arc<T> {
+    fn drop(&mut self) {
+        if self.data().data_ref_count.fetch_sub(1, Release) == 1 {
+            fence(Acquire);
+            // 安全性：数据引用计数器为零，所以不会有任何东西再访问数据。
+            unsafe {
+                ManuallyDrop::drop(&mut *self.data().data.get());
+            }
+            // 现在没有 `Arc<T>` 剩下了，丢弃代表所有 `Arc<T>` 的隐式弱指针。
+            drop(Weak { ptr: self.ptr });
+        }
+    }
+}
+```
+
+`Weak<T>` 上的 `upgrade` 方法大部分保持不变，只是它不再克隆弱指针，因为它不再需要增加弱指针计数器。只有在分配已经至少有一个 `Arc<T>` 时，升级才会成功，这意味着 `Arc` 已经被计入弱指针计数器。
+
+```rust
+impl<T> Weak<T> {
+    // …
+    pub fn upgrade(&self) -> Option<Arc<T>> {
+        let mut n = self.data().data_ref_count.load(Relaxed);
+        loop {
+            if n == 0 {
+                return None;
+            }
+            assert!(n < usize::MAX);
+            if let Err(e) = self.data()
+                .data_ref_count
+                .compare_exchange_weak(n, n + 1, Relaxed, Relaxed)
+            {
+                n = e;
+                continue;
+            }
+            return Some(Arc { ptr: self.ptr });
+        }
+    }
+}
+```
+
+到目前为止，这个实现与我们先前的实现差异非常小。然而，变得棘手的是我们还需要实现的最后两个方法：`downgrade` 和 `get_mut`。
+
+与之前不同，`get_mut` 方法现在需要检查两个计数器是否都设置为一，以便能够确定是否只有一个 `Arc<T>` 且没有 `Weak<T>` 剩下，因为现在弱指针计数器为一可以代表多个 `Arc<T>` 指针。读取计数器是两个在不同（略微）时间发生的独立操作，所以我们必须非常小心不要错过任何并发的降级，例如我们在[“优化”](chapter6#优化optimizing)开头看到的示例情况。
+
+如果我们首先检查 `data_ref_count` 是否为一，那么我们可能会在检查另一个计数器之前错过随后的 `upgrade()`。但是，如果我们首先检查 `alloc_ref_count` 是否为一，那么我们可能会在检查另一个计数器之前错过随后的 `downgrade()`。
+
+摆脱这个困境的一种方法是，通过“锁定”弱指针计数器来短暂地阻塞 `downgrade()` 操作。为此，我们不需要像互斥锁那样的东西。我们可以使用一个特殊值，比如 `usize::MAX`，来表示弱指针计数器的一个特殊“锁定”状态。它只会被锁定非常短的时间，只是为了加载另一个计数器，所以 `downgrade` 方法可以自旋直到它解锁，在不太可能的情况下它与 `get_mut` 同时运行。
+
+所以，在 `get_mut` 中，我们首先必须检查 `alloc_ref_count` 是否为一，同时如果是，则将其替换为 `usize::MAX`。这是 `compare_exchange` 的工作。
+
+然后我们必须检查另一个计数器是否也为一，之后我们可以立即解锁弱指针计数器。如果第二个计数器也为一，我们知道我们对分配和数据拥有独占访问权，这样我们就可以返回一个 `&mut T`。
+
+```rust
+pub fn get_mut(arc: &mut Self) -> Option<&mut T> {
+    // Acquire 匹配 Weak::drop 的 Release 减少，以确保任何升级的指针在下一个 data_ref_count.load 中可见。
+    if arc.data().alloc_ref_count.compare_exchange(
+        1, usize::MAX, Acquire, Relaxed
+    ).is_err() {
+        return None;
+    }
+
+    let is_unique = arc.data().data_ref_count.load(Relaxed) == 1;
+
+    // Release 匹配 `downgrade` 中的 Acquire 增加，以确保 `downgrade` 之后对 data_ref_count 的任何更改不会改变上面的 is_unique 结果。
+    arc.data().alloc_ref_count.store(1, Release);
+
+    if !is_unique {
+        return None;
+    }
+
+    // Acquire 以匹配 Arc::drop 的 Release 减少，以确保没有其他东西在访问数据。
+    fence(Acquire);
+    unsafe { Some(&mut *arc.data().data.get()) }
+}
+```
+
+正如你可能已经预料到的，锁定操作（`compare_exchange`）必须使用 Acquire 内存顺序，解锁操作（`store`）必须使用 Release 内存顺序。
+
+如果我们在 `compare_exchange` 中使用了 Relaxed，那么即使 `compare_exchange` 已经确认每个 `Weak` 指针都被丢弃了，后续的 `data_ref_count` 加载也可能看不到新升级的 `Weak` 指针的新值。
+
+如果我们在 `store` 中使用了 Relaxed，那么前面的加载可能会观察到未来仍可降级的 `Arc` 的 `Arc::drop` 的结果。
+
+acquire 栅栏和之前一样：它与 `Arc::Drop` 中的 release-decrement 操作同步，以确保通过先前的 `Arc` 克隆的每个访问都在新的独占访问之前发生。
+
+拼图的最后一块是 `downgrade` 方法，它必须检查特殊的 `usize::MAX` 值以查看弱指针计数器是否被锁定，并自旋直到它被解锁。就像在 `upgrade` 实现中一样，我们将使用一个比较并交换循环来检查特殊值和溢出，然后再增加计数器：
+
+```rust
+pub fn downgrade(arc: &Self) -> Weak<T> {
+    let mut n = arc.data().alloc_ref_count.load(Relaxed);
+    loop {
+        if n == usize::MAX {
+            std::hint::spin_loop();
+            n = arc.data().alloc_ref_count.load(Relaxed);
+            continue;
+        }
+        assert!(n < usize::MAX - 1);
+        // Acquire 与 get_mut 中的 release-store 同步。
+        if let Err(e) =
+            arc.data()
+                .alloc_ref_count
+                .compare_exchange_weak(n, n + 1, Acquire, Relaxed)
+        {
+            n = e;
+            continue;
+        }
+        return Weak { ptr: arc.ptr };
+    }
+}
+```
+
+我们对 `compare_exchange_weak` 使用 acquire 内存顺序，它与 `get_mut` 函数中的 release-store 同步。否则，后续 `Arc::drop` 的效果可能在解锁计数器之前就对运行 `get_mut` 的线程可见。
+
+换句话说，这里的 acquire 比较并交换操作有效地“锁定”了 `get_mut`，阻止其成功。它可以通过稍后使用 release 内存顺序将计数器减少回一的 `Weak::drop` 再次“解锁”。
+
+我们刚刚制作的 `Arc<T>` 和 `Weak<T>` 的优化实现几乎与 Rust 标准库中包含的实现相同。
+
+如果我们运行与之前完全相同的测试（[“测试”](chapter6#测试testing-it-1)），我们会看到这个优化实现也能编译并通过我们的测试。
+
+如果你觉得为这个优化实现正确决定内存顺序很困难，别担心。许多并发数据结构的正确实现比这个更简单。本章包含这个 `Arc` 实现，正是因为它关于内存顺序的微妙之处。
+
+## **总结**（Summary）
+
+- `Arc<T>` 提供了引用计数分配的共享所有权。
+- 通过检查引用计数器是否恰好为一，`Arc<T>` 可以有条件地提供独占访问（`&mut T`）。
+- 增加原子引用计数器可以使用 relaxed 操作，但最后的减少必须与所有先前的减少同步。
+- 弱指针（`Weak<T>`）可用于避免循环。
+- `NonNull<T>` 类型表示一个永远不为空的指向 `T` 的指针。
+- `ManuallyDrop<T>` 类型可用于通过不安全代码手动决定何时丢弃 `T`。
+- 一旦涉及多个原子变量，事情就变得更加复杂。
+- 实现一个临时（自旋）锁有时可以成为同时操作多个原子变量的有效策略。
