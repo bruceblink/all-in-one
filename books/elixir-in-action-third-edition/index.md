@@ -3,7 +3,7 @@ sidebar_position: 5
 typora-root-url: ./..\..\static
 ---
 
-# Elixir in Action, Third Edition - 中文翻译
+# Elixir in Action, Third Edition 中文翻译
 
 ### [序 Forward](foreword.md)
 ### [前言 Preface](preface.md)
