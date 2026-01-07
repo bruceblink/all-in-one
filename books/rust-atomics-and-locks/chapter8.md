@@ -31,3 +31,94 @@ Windows不遵循POSIX标准。它没有附带作为内核主要接口的扩展 `
 
 通过它们的库，操作系统为我们提供了需要与内核交互的同步原语，例如互斥锁和条件变量。它们的实现中哪部分属于此类库或属于内核，因操作系统而异。例如，有时互斥锁的锁定和解锁操作直接对应于内核系统调用，而在其他系统上，库处理大部分操作，并且只有在需要阻塞或唤醒线程时才会执行系统调用。（后者往往更高效，因为进行系统调用可能很慢。）
 
+## **POSIX**
+
+作为POSIX线程扩展（更广为人知的是pthreads）的一部分，POSIX规定了用于并发的数据类型和函数。虽然在技术上作为单独的系统库`libpthread`的一部分指定，但如今这些功能通常直接包含在`libc`中。
+
+除了生成和连接线程（`pthread_create`和`pthread_join`）等功能外，pthread提供了最常见的同步原语：互斥锁（`pthread_mutex_t`）、读写锁（`pthread_rwlock_t`）和条件变量（`pthread_cond_t`）。
+
+**pthread_mutex_t**
+
+Pthread的互斥锁必须通过调用`pthread_mutex_init()`进行初始化，并通过`pthread_mutex_destroy()`销毁。初始化函数接受一个`pthread_mutexattr_t`类型的参数，可用于配置互斥锁的某些属性。
+
+这些属性之一是其对递归锁定的行为，递归锁定发生在已经持有锁的同一线程尝试再次锁定时。使用默认设置（`PTHREAD_MUTEX_DEFAULT`）时，这会导致未定义行为，但也可以配置为导致错误（`PTHREAD_MUTEX_ERRORCHECK`）、死锁（`PTHREAD_MUTEX_NORMAL`）或成功的第二次锁定（`PTHREAD_MUTEX_RECURSIVE`）。
+
+这些互斥锁通过`pthread_mutex_lock()`或`pthread_mutex_trylock()`锁定，并通过`pthread_mutex_unlock()`解锁。此外，与Rust的标准互斥锁不同，它们还支持通过`pthread_mutex_timedlock()`进行有时间限制的锁定。
+
+可以通过将`pthread_mutex_t`赋值为`PTHREAD_MUTEX_INITIALIZER`来静态初始化它，而无需调用`pthread_mutex_init()`。然而，这仅适用于具有默认设置的互斥锁。
+
+**pthread_rwlock_t**
+
+Pthread的读写锁通过`pthread_rwlock_init()`和`pthread_rwlock_destroy()`初始化和销毁。与互斥锁类似，默认的`pthread_rwlock_t`也可以通过`PTHREAD_RWLOCK_INITIALIZER`静态初始化。
+
+与pthread互斥锁相比，pthread读写锁的可通过其初始化函数配置的属性要少得多。最值得注意的是，尝试递归写锁定将始终导致死锁。然而，尝试递归获取额外的读锁被保证成功，即使有写者正在等待。这实际上排除了任何优先考虑写者而非读者的高效实现，这就是为什么大多数pthread实现优先考虑读者的原因。
+
+其接口与`pthread_mutex_t`几乎相同，包括对时间限制的支持，只是每个锁定函数都有两个变体：一个用于读者（`pthread_rwlock_rdlock`），一个用于写者（`pthread_rwlock_wrlock`）。可能令人惊讶的是，只有一个解锁函数（`pthread_rwlock_unlock`）用于解锁任何一种锁。
+
+**pthread_cond_t**
+
+Pthread条件变量与pthread互斥锁一起使用。它通过`pthread_cond_init`和`pthread_cond_destroy`初始化和销毁，并且有一些可以配置的属性。最值得注意的是，我们可以配置时间限制是使用单调时钟（如Rust的`Instant`）还是实时时钟（如Rust的`SystemTime`，有时称为“挂钟时间”）。具有默认设置的条件变量，例如由`PTHREAD_COND_INITIALIZER`静态初始化的条件变量，使用实时时钟。
+
+通过`pthread_cond_timedwait()`等待这样的条件变量，可选择带时间限制。通过调用`pthread_cond_signal()`唤醒等待的线程，或者通过`pthread_cond_broadcast()`一次唤醒所有等待的线程。
+
+pthread提供的其余同步原语包括屏障（`pthread_barrier_t`）、自旋锁（`pthread_spinlock_t`）和一次性初始化（`pthread_once_t`），这些我们将不讨论。
+
+### **在Rust中包装**（Wrapping in Rust）
+
+看起来我们可以通过将它们的C类型（通过`libc` crate）方便地包装在Rust结构体中来轻松地将这些pthread同步原语暴露给Rust，像这样：
+
+```rust
+pub struct Mutex {
+    m: libc::pthread_mutex_t,
+}
+```
+
+然而，这存在一些问题，因为这个pthread类型是为C设计的，而不是为Rust设计的。
+
+首先，Rust有关可变性和借用的规则，通常不允许在共享时对某物进行修改。由于像`pthread_mutex_lock`这样的函数很可能会修改互斥锁，我们需要内部可变性来确保这是可接受的。因此，我们必须将其包装在`UnsafeCell`中：
+
+```rust
+pub struct Mutex {
+    m: UnsafeCell<libc::pthread_mutex_t>,
+}
+```
+
+一个更大的问题与移动有关。
+
+在Rust中，我们经常移动对象。例如，通过从函数返回对象、将其作为参数传递，或简单地将其分配给新位置。我们拥有的任何东西（并且没有被其他东西借用）都可以自由移动到新位置。
+
+然而，在C中，这并不普遍。在C中，类型依赖于其内存地址保持不变是很常见的。例如，它可能包含一个指向自身的指针，或者将指向自身的指针存储在某些全局数据结构中。在这种情况下，将其移动到新位置可能导致未定义行为。
+
+我们讨论的pthread类型不保证它们是可移动的，这在Rust中成了一个问题。甚至一个简单的惯用`Mutex::new()`函数也是一个问题：它将返回一个互斥锁对象，这会将其移动到内存中的新位置。
+
+由于用户总是可以移动他们拥有的任何互斥锁对象，我们需要要么让他们承诺不会这样做（通过使接口不安全），要么我们需要剥夺他们的所有权并将所有东西隐藏在一个包装器后面（`std::pin::Pin`可以用于此）。这两种都不是好的解决方案，因为它们会影响我们互斥锁类型的接口，使其非常容易出错和/或使用不便。
+
+这个问题的一个解决方案是将互斥锁包装在`Box`中。通过将pthread互斥锁放在它自己的分配中，即使其所有者被移动，它也会保持在内存中的同一位置。
+
+```rust
+pub struct Mutex {
+    m: Box<UnsafeCell<libc::pthread_mutex_t>>,
+}
+```
+
+> 这就是Rust 1.62之前在所有Unix平台上实现`std::sync::Mutex`的方式。
+
+这种方法的缺点是开销：每个互斥锁现在都有自己的分配，这给创建、销毁和使用互斥锁增加了显著的开销。另一个缺点是它阻止了`new`函数成为`const`，这阻碍了拥有静态互斥锁的可能性。
+
+即使`pthread_mutex_t`是可移动的，`const fn new`也只能用默认设置初始化它，这导致递归锁定时出现未定义行为。无法设计一个安全的接口来防止递归锁定，所以这意味着我们需要使锁定函数不安全，让用户承诺他们不会这样做。
+
+我们的`Box`方法在删除锁定的互斥锁时仍然存在问题。似乎通过正确的设计，不可能在锁定时删除`Mutex`，因为当它仍被`MutexGuard`借用时无法删除它。必须先删除`MutexGuard`，解锁`Mutex`。然而，在Rust中，忘记（或泄漏）一个对象而不删除它是安全的。这意味着可以写出这样的代码：
+
+```rust
+fn main() {
+    let m = Mutex::new(..);
+    let guard = m.lock(); // 锁定它..
+    std::mem::forget(guard); // ..但不解锁它。
+}
+```
+
+在上面的示例中，`m`将在作用域结束时被删除，而它仍被锁定。根据Rust编译器，这是可以的，因为`guard`已被泄漏并且不能再使用。
+
+然而，pthread规定在锁定的互斥锁上调用`pthread_mutex_destroy()`不能保证工作，并可能导致未定义行为。一种解决方法是，在删除我们的`Mutex`时首先尝试锁定（然后解锁）pthread互斥锁，并在它已经被锁定时panic（或泄漏`Box`），但这增加了更多的开销。
+
+这些问题不仅适用于`pthread_mutex_t`，也适用于我们讨论的其他类型。总体而言，pthread同步原语的设计对于C来说是可以的，但对于Rust来说并不太适合。
