@@ -492,3 +492,88 @@ def fun(a, b, c, d), do: a + b + c + d
 ```
 
 因为元数区分了同名的多个函数，所以不可能让一个函数接受可变数量的参数。Elixir 中没有 C 语言的 `…` 或 JavaScript 的 `arguments` 的对应物。
+
+### **2.3.4 函数可见性**（Function visibility）
+
+使用 `def` 宏定义函数时，该函数是公开的——可以被其他任何代码调用。用 Elixir 的术语来说，这个函数被**导出**了。你也可以使用 `defp` 宏来定义私有函数。私有函数只能在其定义的模块内部使用。以下示例展示了这一点。
+
+**代码清单 2.4 包含公共函数和私有函数的模块 (private_fun.ex)**
+
+```elixir
+defmodule TestPrivate do
+  def double(a) do
+    sum(a, a)
+  end
+
+  defp sum(a, b) do
+    a + b
+  end
+end
+```
+
+模块 `TestPrivate` 定义了两个函数。函数 `double` 是导出的，可以从外部调用。在内部，它依赖私有函数 `sum` 来完成工作。让我们在 shell 中尝试一下。加载该模块，然后执行以下操作：
+
+```elixir
+iex(1)> TestPrivate.double(3)
+6
+iex(2)> TestPrivate.sum(3, 4)
+** (UndefinedFunctionError) function TestPrivate.sum/2 ...
+```
+
+如你所见，私有函数不能在模块外部调用。
+
+### **2.3.5 导入与别名**（Imports and aliases）
+
+调用其他模块的函数有时可能很繁琐，因为你需要引用模块名。如果你的模块经常调用另一个模块的函数，你可以将该模块导入到你的模块中。导入一个模块允许你在调用其公共函数时省略模块名前缀：
+
+```elixir
+defmodule MyModule do
+  import IO
+
+  def my_function do
+    puts "Calling imported function."
+  end
+end
+```
+
+当然，你可以导入多个模块。实际上，标准库的 `Kernel` 模块会自动导入到每个模块中。`Kernel` 包含了许多常用函数，自动导入使它们更易于访问。
+
+**注意** 你可以通过查阅在线文档（https://hexdocs.pm/elixir/Kernel.html）来查看 `Kernel` 模块中有哪些可用的函数。
+
+另一个表达式 `alias`，可以让你使用不同的名称来引用一个模块：
+
+```elixir
+defmodule MyModule do
+  alias IO, as: MyIO
+
+  def my_function do
+    MyIO.puts("Calling imported function.")
+  end
+end
+```
+
+当模块名称很长时，别名会很有用。例如，如果你的应用程序深度划分到多层模块层次结构中，使用完全限定名引用模块会很繁琐。别名可以帮助解决这个问题。例如，假设你有一个 `Geometry.Rectangle` 模块。你可以在客户端模块中为其设置别名并使用较短的名称：
+
+```elixir
+defmodule MyModule do
+  alias Geometry.Rectangle, as: Rectangle
+
+  def my_function do
+    Rectangle.area(...)
+  end
+end
+```
+
+在前面的例子中，`Geometry.Rectangle` 的别名是其名称的最后一部分。这是 `alias` 最常见的用法，因此 Elixir 允许你在这种情况下省略 `as` 选项：
+
+```elixir
+defmodule MyModule do
+  alias Geometry.Rectangle
+
+  def my_function do
+    Rectangle.area(...)
+  end
+end
+```
+
+别名可以帮助你减少一些干扰，尤其是当你需要多次调用一个长名称模块中的函数时。
