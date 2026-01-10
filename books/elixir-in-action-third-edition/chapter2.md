@@ -239,3 +239,179 @@ end
 请注意，点号字符本身并没有什么特殊之处。它只是模块名称中允许使用的字符之一。编译后的版本不会记录模块之间的任何层次关系。
 
 这通常用于将模块组织成有意义的层次结构，使阅读代码时更容易浏览。此外，这种非正式的命名空间划分可以消除可能的命名冲突。例如，考虑两个库，一个实现了 JSON 编码器，另一个实现了 XML 编码器。如果两个库都定义了一个名为 `Encoder` 的模块，那么您将无法在同一个项目中同时使用它们。然而，如果模块被命名为 `Json.Encoder` 和 `Xml.Encoder`，那么命名冲突就避免了。因此，通常会在项目中为所有模块名称添加一个共同的前缀。通常，应用程序或库的名称被用于此目的。
+
+### **2.3.2 函数**（Functions）
+
+函数必须是模块的一部分。函数命名遵循与变量相同的规范：以小写字母或下划线开头，后跟字母、数字和下划线的组合。
+
+与变量类似，函数名也可以以 `?` 和 `!` 字符结尾。`?` 字符通常用于表示返回 `true` 或 `false` 的函数。在名称末尾添加 `!` 字符表示可能引发运行时错误的函数。这两者都是约定而非硬性规则，但最好遵循它们并尊重社区风格。
+
+函数可以使用 `def` 宏来定义：
+
+```elixir
+defmodule Geometry do
+  def rectangle_area(a, b) do
+    ...
+  end
+end
+```
+
+定义以 `def` 表达式开始，后跟函数名、参数列表以及包含在 `do…end` 块中的函数体。由于您使用的是动态语言，因此参数没有类型声明。
+
+**注意** 请注意，`defmodule` 和 `def` 并不被称为关键字。这是因为它们确实不是！相反，它们是 Elixir 宏的示例。您现在无需担心这是如何工作的；本章稍后会对此进行一些解释。如果有助于理解，您可以将 `def` 和 `defmodule` 视为关键字，但要知道这并不完全正确。
+
+如果函数没有参数，可以省略括号：
+
+```elixir
+defmodule Program do
+  def run do
+    ...
+  end
+end
+```
+
+那么返回值呢？回想一下，在 Elixir 中，一切有返回值的都是表达式。函数的返回值是其最后一个表达式的返回值。Elixir 中没有显式的 `return` 语句。
+
+**注意** 既然没有显式的 `return`，您可能会想知道复杂的函数是如何工作的。这将在第 3 章详细讨论，届时您将学习分支和条件逻辑。通常的规则是保持函数简短明了，这样便于计算结果并通过最后一个表达式将其返回。
+
+您在代码清单 2.1 中已经看到了返回值的示例，但让我们在此重复一下：
+
+```elixir
+defmodule Geometry do
+  def rectangle_area(a, b) do
+    a * b
+  end
+end
+```
+
+现在您可以验证这一点。再次启动 shell，然后尝试调用 `rectangle_area` 函数：
+
+```bash
+$ iex geometry.ex
+iex(1)> Geometry.rectangle_area(3, 2)
+6
+```
+
+如果函数体只包含一个表达式，可以使用简写形式，在一行内完成定义：
+
+```elixir
+defmodule Geometry do
+  def rectangle_area(a, b), do: a * b
+end
+```
+
+要调用定义在另一个模块中的函数，请使用模块名后跟函数名：
+
+```elixir
+iex(1)> Geometry.rectangle_area(3, 2)
+6
+```
+
+当然，您总是可以将函数结果存储到变量中：
+
+```elixir
+iex(2)> area = Geometry.rectangle_area(3, 2)
+6
+iex(3)> area
+6
+```
+
+在Elixir中，括号是可选的，因此您可以省略它们：
+
+```elixir
+iex(4)> Geometry.rectangle_area 3, 2
+6
+```
+
+就个人而言，我认为省略括号会使代码产生歧义，因此我的建议是在调用函数时始终加上括号。
+
+> **使用代码格式化工具**
+>
+> 自 1.6 版本起，Elixir 内置了一个代码格式化工具，您可以用它来使代码风格保持一致，无需担心诸如代码布局或括号使用等底层风格细节。
+>
+> 例如，将以下代码片段格式化后：
+>
+> ```elixir
+> defmodule Client do
+>   def run do
+>     Geometry.rectangle_area 3,2
+>   end
+> end
+> ```
+> 
+> 您会得到如下整洁美观的代码：
+> 
+> ```elixir
+> defmodule Client do
+>   def run do
+>     Geometry.rectangle_area(3, 2)
+>   end
+> end
+> ```
+> 
+> 您可以通过 `mix format` 任务来格式化代码，也可以在您常用的编辑器中安装格式化插件。
+
+如果要调用的函数位于同一个模块内，您可以省略模块前缀：
+
+```elixir
+defmodule Geometry do
+  def rectangle_area(a, b) do
+    a * b
+  end
+
+  def square_area(a) do
+    rectangle_area(a, a)
+  end
+end
+```
+
+鉴于Elixir是一门函数式语言，您经常需要组合函数，将一个函数的结果作为参数传递给下一个函数。Elixir内置了一个称为**管道操作符**的 `|>` 操作符，专门用于此目的：
+
+```elixir
+iex(5)> -5 |> abs() |> Integer.to_string() |> IO.puts()
+5
+```
+
+这段代码在编译时会被转换为以下形式：
+
+```elixir
+iex(6)> IO.puts(Integer.to_string(abs(-5)))
+5
+```
+
+更一般地说，管道操作符会将前一个调用的结果作为下一个调用的第一个参数。因此，以下代码：
+
+```elixir
+prev(arg1, arg2) |> next(arg3, arg4)
+```
+
+在编译时会转换为：
+
+```elixir
+next(prev(arg1, arg2), arg3, arg4)
+```
+
+可以说，管道版本更具可读性，因为执行顺序是从左到右阅读的。管道操作符在源文件中看起来特别优雅，因为您可以将管道布局在多行上：
+
+```elixir
+-5
+|> abs()
+|> Integer.to_string()
+|> IO.puts()
+```
+
+>**Shell中的多行管道**
+如果您将前面的管道链粘贴到`iex`会话中，您会注意到每个中间结果都会被打印到控制台：
+>
+>```elixir
+>iex(1)> -5
+>-5
+>iex(2)> |> abs()
+>5
+>iex(3)> |> Integer.to_string()
+>"5"
+>iex(4)> |> IO.puts()
+>5
+>```
+>
+回忆一下，`iex`会在Elixir表达式完整且有效时立即对其进行求值。在这个例子中，每一行都构成了一个有效的Elixir表达式，例如 `-5` 或 `-5 |> abs()`，因此每个中间结果都被打印出来了。
