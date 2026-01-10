@@ -415,3 +415,80 @@ next(prev(arg1, arg2), arg3, arg4)
 >```
 >
 回忆一下，`iex`会在Elixir表达式完整且有效时立即对其进行求值。在这个例子中，每一行都构成了一个有效的Elixir表达式，例如 `-5` 或 `-5 |> abs()`，因此每个中间结果都被打印出来了。
+
+### **2.3.3 函数元数**（Function arity）
+
+元数描述函数接收的参数数量。一个函数由其所在的模块、名称和元数唯一标识。请看以下函数：
+
+```elixir
+defmodule Rectangle do
+  def area(a, b) do
+    ...
+  end
+end
+```
+
+函数 `Rectangle.area` 接收两个参数，因此可以说它是一个元数为 2 的函数。在 Elixir 领域，这个函数常被称为 `Rectangle.area/2`，其中 `/2` 表示函数的元数。
+
+为什么这很重要？因为两个名称相同但元数不同的函数是两个不同的函数，如下例所示。
+
+**代码清单 2.2 同名但元数不同的函数 (arity_demo.ex)**
+
+```elixir
+defmodule Rectangle do
+  def area(a), do: area(a, a)
+  def area(a, b), do: a * b
+end
+```
+
+将这个模块加载到 shell 中，然后尝试以下操作：
+
+```elixir
+iex(1)> Rectangle.area(5)
+25
+iex(2)> Rectangle.area(5, 6)
+30
+```
+
+如您所见，这两个函数的行为完全不同。名称可能被重载，但元数不同，因此我们将它们视为两个不同的函数，各自有自己的实现。
+
+同名但实现完全不同的函数通常没有意义。更常见的情况是，元数较低的函数会委托给元数较高的函数，并提供一些默认参数。这就是代码清单 2.2 中的情况，`Rectangle.area/1` 委托给了 `Rectangle.area/2`。让我们看另一个例子。
+
+**代码清单 2.3 同名函数、不同元数与默认参数 (arity_calc.ex)**
+
+```elixir
+defmodule Calculator do
+  def add(a), do: add(a, 0)
+  def add(a, b), do: a + b
+end
+```
+
+同样，一个元数较低的函数通过一个元数较高的函数来实现。这种模式非常常见，以至于 Elixir 允许您使用 `\\` 操作符后跟参数的默认值来指定参数的默认值：
+
+```elixir
+defmodule Calculator do
+  def add(a, b \\ 0), do: a + b
+end
+```
+
+这个定义会生成两个函数，与代码清单 2.3 中完全一样。
+
+您可以为任意参数组合设置默认值：
+
+```elixir
+defmodule MyModule do
+  def fun(a, b \\ 1, c, d \\ 2) do
+    a + b + c + d
+  end
+end
+```
+
+请始终记住，默认值会生成多个同名但元数不同的函数。前面的代码生成了三个函数：`MyModule.fun/2`、`MyModule.fun/3` 和 `MyModule.fun/4`，其实现如下：
+
+```elixir
+def fun(a, c), do: fun(a, 1, c, 2)
+def fun(a, b, c), do: fun(a, b, c, 2)
+def fun(a, b, c, d), do: a + b + c + d
+```
+
+因为元数区分了同名的多个函数，所以不可能让一个函数接受可变数量的参数。Elixir 中没有 C 语言的 `…` 或 JavaScript 的 `arguments` 的对应物。
