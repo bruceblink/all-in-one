@@ -577,3 +577,115 @@ end
 ```
 
 别名可以帮助你减少一些干扰，尤其是当你需要多次调用一个长名称模块中的函数时。
+
+### **2.3.6 模块属性**（Module attributes）
+
+模块属性具有双重用途：它们既可作为编译时常量使用，也可以注册任何属性，以便在运行时进行查询。让我们来看一个例子。
+
+下面的模块提供了处理圆的基本函数：
+
+```elixir
+iex(1)> defmodule Circle do
+          @pi 3.14159
+          def area(r), do: r*r*@pi
+          def circumference(r), do: 2*r*@pi
+        end
+iex(2)> Circle.area(1)
+3.14159
+iex(3)> Circle.circumference(1)
+6.28318
+```
+
+请注意你如何在 shell 中直接定义模块。这是允许的，使得实验成为可能，而无需在磁盘上存储任何文件。
+
+关于常量 `@pi` 的重要一点是，它仅在模块编译期间存在，此时对它的引用会被内联。
+
+此外，属性可以被注册，这意味着它将被存储在生成的二进制文件中，并可在运行时访问。Elixir 默认会注册一些模块属性。例如，属性 `@moduledoc` 和 `@doc` 可用于为模块和函数提供文档：
+
+```elixir
+defmodule Circle do
+  @moduledoc "Implements basic circle functions"
+  @pi 3.14159
+
+  @doc "Computes the area of a circle"
+  def area(r), do: r*r*@pi
+
+  @doc "Computes the circumference of a circle"
+  def circumference(r), do: 2*r*@pi
+end
+```
+
+然而，要尝试这个，你需要生成一个编译文件。这里有一个快速的方法：将此代码保存到某处的 `circle.ex` 文件中，然后运行 `elixirc circle.ex`。这将生成文件 `Elixir.Circle.beam`。接下来，从同一文件夹启动 `iex` shell。
+
+现在你可以在运行时检索该属性：
+
+```elixir
+iex(1)> Code.fetch_docs(Circle)
+{:docs_v1, 2, :elixir, "text/markdown",
+ %{"en" => "Implements basic circle functions"}, %{},
+ [
+   {{:function, :area, 1}, 5, ["area(r)"],
+    %{"en" => "Computes the area of a circle"}, %{}},
+   {{:function, :circumference, 1}, 8, ["circumference(r)"],
+    %{"en" => "Computes the circumference of a circle"}, %{}}
+ ]}
+```
+
+值得注意的是，Elixir 生态系统中的其他工具知道如何处理这些属性。例如，你可以使用 `iex` 的帮助功能来查看模块的文档：
+
+```elixir
+iex(2)> h Circle
+                                    Circle
+Implements basic circle functions
+iex(3)> h Circle.area
+                                    * def area(r)
+Computes the area of a circle
+```
+
+此外，你可以使用 `ex_doc` 工具为你的项目生成 HTML 文档。这是生成 Elixir 文档的方式，如果你计划构建更复杂的项目，特别是那些将被许多不同客户端使用的东西，你应该考虑使用 `@moduledoc` 和 `@doc`。
+
+其根本在于，注册属性可用于将元信息附加到模块，这些元信息随后可被其他 Elixir（甚至 Erlang）工具使用。还有许多其他预注册属性，你也可以注册自己的自定义属性。更多详细信息，请查看 `Module` 模块的文档。
+
+**类型规范**
+类型规范（通常称为 typespecs）是另一个基于属性的重要特性。它们允许你为函数提供类型信息，随后可以使用名为 dialyzer 的静态分析工具对这些信息进行分析。
+
+以下是我们扩展 `Circle` 模块以包含类型规范的方法：
+
+```elixir
+defmodule Circle do
+  @pi 3.14159
+
+  @spec area(number) :: number
+  def area(r), do: r*r*@pi
+
+  @spec circumference(number) :: number
+  def circumference(r), do: 2*r*@pi
+end
+```
+
+在这里，你使用 `@spec` 属性来指示这两个函数都接受并返回一个数字。
+
+类型规范提供了一种弥补缺乏静态类型系统的方式。结合 dialyzer 工具，这对于执行程序的静态分析非常有用。此外，类型规范可以让你更好地记录你的函数。请记住，Elixir 是一门动态语言，因此函数输入和输出不能通过查看函数签名轻易推断出来。类型规范在这方面可以提供显著帮助，我可以证明，当提供类型规范时，理解他人的代码会容易得多。
+
+例如，看看 Elixir 函数 `List.insert_at/3` 的类型规范：
+
+```elixir
+@spec insert_at(list, integer, any) :: list
+```
+
+即使不看代码或不阅读文档，你也能合理地猜出这个函数将任意类型的项（第三个参数）插入到列表（第一个参数）中的给定位置（第二个参数），并返回一个新列表。
+
+本书中将不会使用类型规范，主要是为了使代码尽可能简短。但如果你计划构建更复杂的系统，我的建议是认真考虑使用类型规范。你可以在官方文档中找到详细参考。
+
+### **2.3.7 注释**（Comments）
+
+Elixir 中的注释以 `#` 字符开头，表示该行的其余部分是注释：
+
+```elixir
+# 这是一个注释
+a = 3.14 # 这也是一个注释
+```
+
+不支持块注释。如果你需要注释多行，请为每一行添加 `#` 字符前缀。
+
+至此，我们已经完成了函数和模块的基础知识。你现在已经了解了主要的代码组织技术。在此基础上，是时候来看看 Elixir 的类型系统了。
