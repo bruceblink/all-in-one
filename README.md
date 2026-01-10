@@ -5,13 +5,13 @@ This website is built using [Docusaurus](https://docusaurus.io/), a modern stati
 ## Installation
 
 ```bash
-    pnpm install
+  pnpm install
 ```
 
 ## Local Development
 
 ```bash
-    pnpm start
+  pnpm start
 ```
 
 This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
@@ -26,16 +26,10 @@ This command generates static content into the `build` directory and can be serv
 
 ## Deployment
 
-Using SSH:
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/bruceblink/all-in-one)
 
-```bash
-USE_SSH=true yarn deploy
-```
+[![Deploy to Cloudflare Pages](https://deploy.workers.cloudflare.com/button)](https://dash.cloudflare.com/?to=pages/create&repository=https://github.com/bruceblink/all-in-one)
 
-Not using SSH:
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/bruceblink/all-in-one)
 
-```bash
-GIT_USER=<Your GitHub username> yarn deploy
-```
-
-If you are using GitHub pages for hosting, this command is a convenient way to build the website and push to the `gh-pages` branch.
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/bruceblink/all-in-one)
