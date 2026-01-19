@@ -107,6 +107,11 @@ const config: Config = {
           position: 'left',
         },
         {
+          to: 'https://it-tools.likanug.top',
+          label: 'Tools',
+          position: 'left',
+        },
+        {
           href: 'https://reference.likanug.top',
           label: 'Reference',
           position: 'left',
