@@ -90,6 +90,13 @@ const config: Config = {
   themeConfig: {
     // Replace with your project's social card
     image: 'img/docusaurus-social-card.jpg',
+      metadata: [
+          { name: 'keywords', content: 'docusaurus, docs, blog' },
+          { name: 'author', content: 'likanug' },
+          { name: 'google-adsense-account', content: 'ca-pub-2122126888973017' },
+          { property: 'og:type', content: 'website' },
+          { property: 'og:site_name', content: 'My Site' },
+        ],
     colorMode: {
       respectPrefersColorScheme: true,
     },

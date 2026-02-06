@@ -11,7 +11,6 @@ function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
   return (
       <header className={clsx('hero', styles.heroBanner)}>
-          <meta name="google-adsense-account" content="ca-pub-2122126888973017"/>
           <div className="container">
               <div style={{ display: `flex`, flexDirection: `column`, placeItems: `center` }}>
                   <h1 className="hero__title">{siteConfig.title}</h1>
