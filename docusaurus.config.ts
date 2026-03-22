@@ -134,7 +134,7 @@ const config: Config = {
           position: 'left',
         },
         {
-          href: 'https://kvideo-a2x.pages.dev',
+          href: 'https://kvideo.likanug.app',
           label: 'Video',
           position: 'left',
         },
