@@ -114,7 +114,7 @@ const config: Config = {
           position: 'left',
         },
         {
-          to: 'https://it-tools.likanug.top',
+          to: 'https://tools.likanug.app',
           label: 'Tools',
           position: 'left',
         },
