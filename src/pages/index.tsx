@@ -1,39 +1,73 @@
 import type {ReactNode} from 'react';
-import clsx from 'clsx';
 import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
-import hasuras from '@site/static/img/hasuras.png';
 
 import styles from './index.module.css';
 
-function HomepageHeader() {
+const SECTIONS = [
+  {
+    title: 'Docs',
+    description: '技术文档 · 系统设计 · 工程实践',
+    href: '/docs/intro',
+    icon: '📖',
+  },
+  {
+    title: 'Books',
+    description: '技术书籍精读笔记与摘要',
+    href: '/books/intro',
+    icon: '📚',
+  },
+  {
+    title: 'Blog',
+    description: '记录思考 · 分享见解',
+    href: '/blog',
+    icon: '✍️',
+  },
+  {
+    title: 'Wiki',
+    description: '知识索引 · 风格指南',
+    href: '/wiki/',
+    icon: '🗂️',
+  },
+];
+
+function HeroSection() {
   const {siteConfig} = useDocusaurusContext();
   return (
-      <header className={clsx('hero', styles.heroBanner)}>
-          <div className="container">
-              <div style={{ display: `flex`, flexDirection: `column`, placeItems: `center` }}>
-                  <h1 className="hero__title">{siteConfig.title}</h1>
-                  <p className="hero__subtitle">{siteConfig.tagline}</p>
-              </div>
-              <div className={styles.links}>
-                  <Link to={"/docs/intro"} className="button button--primary button--lg">
-                      Likanug Docs
-                  </Link>
-                  <div className={styles.links}>
-                      <Link className="button button--secondary button--lg" to="/wiki/">
-                          Docs Wiki
-                      </Link>
-                  </div>
-                  <div className={styles.links}>
-                      <Link className="button button--success button--lg" to="/wiki/style/">
-                          Docs Style Guide
-                      </Link>
-                  </div>
-              </div>
-              <img src={hasuras} alt="Hasuras Image" />
-          </div>
-      </header>
+    <section className={styles.hero}>
+      <div className={styles.heroBg} aria-hidden="true" />
+      <div className={styles.heroInner}>
+        <span className={styles.badge}>Personal Knowledge Base</span>
+        <h1 className={styles.heroTitle}>{siteConfig.title}</h1>
+        <p className={styles.heroSubtitle}>{siteConfig.tagline}</p>
+        <div className={styles.heroActions}>
+          <Link to="/docs/intro" className={styles.primaryBtn}>
+            开始探索
+          </Link>
+          <Link to="/blog" className={styles.secondaryBtn}>
+            最新博客
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SectionCards() {
+  return (
+    <section className={styles.sections}>
+      <div className={styles.sectionGrid}>
+        {SECTIONS.map((s) => (
+          <Link key={s.title} to={s.href} className={styles.card}>
+            <span className={styles.cardIcon}>{s.icon}</span>
+            <h3 className={styles.cardTitle}>{s.title}</h3>
+            <p className={styles.cardDesc}>{s.description}</p>
+            <span className={styles.cardArrow}>→</span>
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -41,12 +75,13 @@ export default function Home(): ReactNode {
   const {siteConfig} = useDocusaurusContext();
   return (
     <Layout
-      title={`Hello from ${siteConfig.title}`}
-      description="Description will go into a meta tag in <head />">
-      <HomepageHeader />
+      title={siteConfig.title}
+      description="Likanug's personal knowledge base — docs, books, blog and wiki.">
       <main>
-        {/*<HomepageFeatures />*/}
+        <HeroSection />
+        <SectionCards />
       </main>
     </Layout>
   );
 }
+

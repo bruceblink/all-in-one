@@ -6,7 +6,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
   title: 'Likanug',
-  tagline: 'Dinosaurs are cool',
+  tagline: '记录思考，沉淀知识，持续构建。',
   favicon: 'img/favicon.ico',
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
