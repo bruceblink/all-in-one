@@ -105,7 +105,7 @@ const config: Config = {
       title: '',
       logo: {
         alt: 'Likanug Logo',
-        src: 'img/logo.png',
+        src: 'img/logo.svg',
       },
       items: [
         {
